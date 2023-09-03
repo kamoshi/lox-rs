@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, borrow::Cow};
 
 #[derive(Debug)]
 pub enum TokenType {
@@ -14,14 +14,13 @@ pub enum TokenType {
     Less, LessEqual,
 
     // Literals
-    Identifier, String, Number,
+    Ident, Str(String), Num(f64),
 
     // Keywords
     And, Class, Else, False, Fun, For, If, Nil, Or,
     Print, Return, Super, This, True, Var, While,
 
     Eof,
-
 }
 
 impl Display for TokenType {
@@ -47,9 +46,9 @@ impl Display for TokenType {
             GreaterEqual    => "greater-equal",
             Less            => "less",
             LessEqual       => "less-equal",
-            Identifier      => "identifier",
-            String          => "string",
-            Number          => "number",
+            Ident           => "identifier",
+            Str(_)          => "string",
+            Num(_)          => "number ",
             And             => "and",
             Class           => "class",
             Else            => "else",

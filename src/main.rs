@@ -2,6 +2,8 @@ use std::{env, fs, io::{self, Write}, process, error::Error};
 
 mod token_type;
 mod token;
+mod scanner;
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -45,9 +47,9 @@ fn run_prompt() {
 }
 
 fn run(source: &str) -> Result<(), Box<dyn Error>> {
-    let tokens = source.split_whitespace().collect::<Vec<_>>();
+    let tokens = scanner::scan_tokens(source);
     for token in tokens {
-        println!("{token}");
+        println!("{}", token.to_string());
     }
     Ok(())
 }
