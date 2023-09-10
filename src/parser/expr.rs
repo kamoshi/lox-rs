@@ -1,23 +1,34 @@
 type RecExpr = Box<Expr>;
 
 pub(crate) enum Expr {
-    Grouping(RecExpr),
-    Unary(TokenUnary, RecExpr),
-    Binary(TokenBinary, RecExpr, RecExpr),
     Literal(Literal),
-}
-
-pub(crate) enum TokenUnary {
-    Bang, Minus
-}
-
-pub(crate) enum TokenBinary {
-    Minus, Plus
+    Unary(OpUnary, RecExpr),
+    Binary(RecExpr, OpBinary, RecExpr),
+    Grouping(RecExpr),
 }
 
 pub(crate) enum Literal {
-    Str(String),
     Num(f64),
+    Str(String),
+    True,
+    False,
+    Nil,
+}
+
+pub(crate) enum OpUnary {
+    Bang, Minus
+}
+
+pub(crate) enum OpBinary {
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    Plus,
+    Minus,
+    Star,
+    Slash,
 }
 
 impl ToString for Expr {
@@ -25,10 +36,13 @@ impl ToString for Expr {
         match self {
             Expr::Grouping(expr) => format!("({})", expr.to_string()),
             Expr::Unary(op, expr) => format!("(op {})", expr.to_string()),
-            Expr::Binary(op, lexpr, rexpr) => format!("(op {} {})", lexpr.to_string(), rexpr.to_string()),
+            Expr::Binary(lexpr, op, rexpr) => format!("(op {} {})", lexpr.to_string(), rexpr.to_string()),
             Expr::Literal(literal) => match literal {
-                Literal::Str(str) => str.to_owned(),
-                Literal::Num(num) => num.to_string(),
+                Literal::Str(str)   => str.to_owned(),
+                Literal::Num(num)   => num.to_string(),
+                Literal::True       => "true".to_owned(),
+                Literal::False      => "false".to_owned(),
+                Literal::Nil        => "nil".to_owned(),
             },
         }
     }
