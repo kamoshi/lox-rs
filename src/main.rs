@@ -47,8 +47,7 @@ fn run_prompt() {
 
 fn run(source: &str) -> Result<(), Box<dyn Error>> {
     let tokens = lexer::scan_tokens(source);
-    for token in tokens {
-        println!("{}", token.to_string());
-    }
+    let ast = parser::parse(&tokens);
+    println!("{}", ast.to_string());
     Ok(())
 }

@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum TokenType {
 
     // Single-character tokens
