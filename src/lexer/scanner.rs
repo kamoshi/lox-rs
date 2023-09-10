@@ -1,4 +1,4 @@
-use crate::{token::Token, token_type::TokenType};
+use crate::lexer::{token::Token, token_type::TokenType};
 
 
 pub(crate) fn scan_tokens(source: &str) -> Vec<Token> {
@@ -6,26 +6,39 @@ pub(crate) fn scan_tokens(source: &str) -> Vec<Token> {
     let mut tokens: Vec<Token> = vec![];
     let mut current = 0;
     let mut line = 1;
+    let mut offset = 0;
 
     while current < chars.len() {
-        let (consumed, new_line, token) = scan_token(&chars[current..]);
+        let (length, new_line, token) = scan_token(&chars[current..]);
 
         if let Some(token) = token {
             tokens.push(Token {
                 r#type: token,
-                lexeme: String::from_iter(&chars[current..current+consumed]),
+                lexeme: String::from_iter(&chars[current..current+length]),
                 line,
+                offset,
+                length,
             });
         }
 
-        if new_line { line += 1 }
-        current += consumed;
+        current += length;
+        match new_line {
+            true => {
+                line += 1;
+                offset = 0;
+            },
+            false => {
+                offset += length;
+            },
+        }
     }
 
     tokens.push(Token {
         r#type: TokenType::Eof,
         lexeme: String::new(),
-        line: 2
+        line,
+        offset,
+        length: 0
     });
     tokens
 }
@@ -105,7 +118,7 @@ fn scan_token(
             let consumed = chars.iter()
                 .position(|&c| !c.is_alphanumeric() && c != '_')
                 .unwrap_or(chars.len());
-            match String::from_iter(&chars[..consumed]).as_str() {
+            let token_type = match String::from_iter(&chars[..consumed]).as_str() {
                 "and"   => TokenType::And,
                 "class" => TokenType::Class,
                 "else"  => TokenType::Else,
@@ -122,9 +135,9 @@ fn scan_token(
                 "true"  => TokenType::True,
                 "var"   => TokenType::Var,
                 "while" => TokenType::While,
-                other   => TokenType::Ident,
+                other   => TokenType::Ident(String::from(other)),
             };
-            (consumed, false, Some(TokenType::Ident))
+            (consumed, false, Some(token_type))
         },
         _ => panic!("Unexpected character.")
     }

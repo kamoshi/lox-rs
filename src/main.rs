@@ -1,8 +1,7 @@
 use std::{env, fs, io::{self, Write}, process, error::Error};
 
-mod token_type;
-mod token;
-mod scanner;
+mod lexer;
+mod parser;
 
 
 fn main() {
@@ -47,17 +46,9 @@ fn run_prompt() {
 }
 
 fn run(source: &str) -> Result<(), Box<dyn Error>> {
-    let tokens = scanner::scan_tokens(source);
+    let tokens = lexer::scan_tokens(source);
     for token in tokens {
         println!("{}", token.to_string());
     }
     Ok(())
-}
-
-fn error(line: i32, message: &str) {
-    report(line, "", message);
-}
-
-fn report(line: i32, r#where: &str, message: &str) {
-    eprintln!("[line {line}] Error {where}: {message}");
 }
