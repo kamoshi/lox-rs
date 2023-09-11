@@ -1,5 +1,6 @@
 use crate::lexer::{token::Token, token_type::TokenType};
 use super::expr::{Expr, OpBinary, Literal, OpUnary};
+use super::error::{Error, ErrorType};
 
 
 // expression  ::= equality ;
@@ -14,21 +15,21 @@ use super::expr::{Expr, OpBinary, Literal, OpUnary};
 
 pub(crate) fn parse(
     tokens: &[Token]
-) -> Box<Expr> {
-    let (_, expr) = expression(tokens);
-    expr
+) -> Result<Box<Expr>, Error> {
+    let (_, expr) = expression(tokens)?;
+    Ok(expr)
 }
 
 fn expression(
     tokens: &[Token]
-) -> (usize, Box<Expr>) {
+) -> Result<(usize, Box<Expr>), Error> {
     equality(tokens)
 }
 
 fn equality(
     tokens: &[Token]
-) -> (usize, Box<Expr>) {
-    let (mut consumed, mut expr) = comparison(tokens);
+) -> Result<(usize, Box<Expr>), Error> {
+    let (mut consumed, mut expr) = comparison(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::BangEqual, TokenType::EqualEqual]) {
         let op = match tokens[consumed].ttype {
@@ -37,19 +38,19 @@ fn equality(
             _ => unreachable!(),
         };
 
-        let (next, next_expr) = comparison(&tokens[1+consumed..]);
+        let (next, next_expr) = comparison(&tokens[1+consumed..])?;
         consumed += 1 + next;
         expr = Box::new(Expr::Binary(expr, op, next_expr))
     }
 
-    (consumed, expr)
+    Ok((consumed, expr))
 }
 
 
 fn comparison(
     tokens: &[Token]
-) -> (usize, Box<Expr>) {
-    let (mut consumed, mut expr) = term(tokens);
+) -> Result<(usize, Box<Expr>), Error> {
+    let (mut consumed, mut expr) = term(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual]) {
         let op = match tokens[consumed].ttype {
@@ -57,23 +58,21 @@ fn comparison(
             TokenType::GreaterEqual => OpBinary::GreaterEqual,
             TokenType::Less         => OpBinary::Less,
             TokenType::LessEqual    => OpBinary::LessEqual,
-            TokenType::Minus        => OpBinary::Sub,
-            TokenType::Plus         => OpBinary::Add,
             _ => unreachable!(),
         };
 
-        let (next, next_expr) = term(&tokens[1+consumed..]);
+        let (next, next_expr) = term(&tokens[1+consumed..])?;
         consumed += 1 + next;
         expr = Box::new(Expr::Binary(expr, op, next_expr))
     }
 
-    (consumed, expr)
+    Ok((consumed, expr))
 }
 
 fn term(
     tokens: &[Token]
-) -> (usize, Box<Expr>) {
-    let (mut consumed, mut expr) = factor(tokens);
+) -> Result<(usize, Box<Expr>), Error> {
+    let (mut consumed, mut expr) = factor(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::Minus, TokenType::Plus]) {
         let op = match tokens[consumed].ttype {
@@ -82,18 +81,18 @@ fn term(
             _ => unreachable!(),
         };
 
-        let (next, next_expr) = factor(&tokens[1+consumed..]);
+        let (next, next_expr) = factor(&tokens[1+consumed..])?;
         consumed += 1 + next;
         expr = Box::new(Expr::Binary(expr, op, next_expr))
     }
 
-    (consumed, expr)
+    Ok((consumed, expr))
 }
 
 fn factor(
     tokens: &[Token]
-) -> (usize, Box<Expr>) {
-    let (mut consumed, mut expr) = unary(tokens);
+) -> Result<(usize, Box<Expr>), Error> {
+    let (mut consumed, mut expr) = unary(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::Slash, TokenType::Star]) {
         let op = match tokens[consumed].ttype {
@@ -102,17 +101,17 @@ fn factor(
             _ => unreachable!(),
         };
 
-        let (next, next_expr) = unary(&tokens[1+consumed..]);
+        let (next, next_expr) = unary(&tokens[1+consumed..])?;
         consumed += 1 + next;
         expr = Box::new(Expr::Binary(expr, op, next_expr))
     }
 
-    (consumed, expr)
+    Ok((consumed, expr))
 }
 
 fn unary(
     tokens: &[Token]
-) -> (usize, Box<Expr>) {
+) -> Result<(usize, Box<Expr>), Error> {
     let next = &tokens[0];
     match next.ttype {
         TokenType::Bang | TokenType::Minus => {
@@ -121,17 +120,17 @@ fn unary(
                 TokenType::Minus    => OpUnary::Neg,
                 _ => unreachable!()
             };
-            let (consumed, expr) = unary(&tokens[1..]);
+            let (consumed, expr) = unary(&tokens[1..])?;
             let expr = Box::new(Expr::Unary(op, expr));
-            (1 + consumed, expr)
+            Ok((1 + consumed, expr))
         },
-        _ => primary(tokens),
+        _ => Ok(primary(tokens)?),
     }
 }
 
 fn primary(
     tokens: &[Token]
-) -> (usize, Box<Expr>) {
+) -> Result<(usize, Box<Expr>), Error> {
     let next = &tokens[0];
 
     use Literal::*;
@@ -142,15 +141,19 @@ fn primary(
         TokenType::False    => (1, Box::new(Expr::Literal(False))),
         TokenType::Nil      => (1, Box::new(Expr::Literal(Nil))),
         TokenType::ParenL   => {
-            let (consumed, expr) = expression(&tokens[1..]);
-            // TODO: check for right paren
-            let expr = Box::new(Expr::Grouping(expr));
+            let (consumed, expr) = expression(&tokens[1..])?;
+
+            let expr = match tokens.get(1 + consumed).map(|t| &t.ttype) {
+                Some(TokenType::ParenR) => Box::new(Expr::Grouping(expr)),
+                _ => return Err(Error { ttype: ErrorType::MissingRightParen }),
+            };
+
             (2 + consumed, expr)
         },
         _ => unimplemented!(),
     };
 
-    (consumed, variant)
+    Ok((consumed, variant))
 }
 
 fn matches(

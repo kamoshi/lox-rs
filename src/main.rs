@@ -1,5 +1,4 @@
-use std::{env, fs, io::{self, Write}, process, error::Error};
-
+use std::{env, fs, io::{self, Write}, process};
 use crate::error::LoxError;
 
 mod lexer;
@@ -56,6 +55,12 @@ fn run(source: &str) {
             return;
         },
     };
-    let ast = parser::parse(&tokens);
+    let ast = match parser::parse(&tokens) {
+        Ok(ast) => ast,
+        Err(err) => {
+            err.report();
+            return;
+        },
+    };
     println!("{}", ast.to_string());
 }
