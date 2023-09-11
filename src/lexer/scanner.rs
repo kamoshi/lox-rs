@@ -1,7 +1,8 @@
 use crate::lexer::{token::Token, token_type::TokenType};
+use super::error::{Error, ErrorType};
 
 
-pub(crate) fn scan_tokens(source: &str) -> Vec<Token> {
+pub(crate) fn scan_tokens(source: &str) -> Result<Vec<Token>, Error> {
     let chars: Vec<char> = source.chars().collect();
     let mut tokens: Vec<Token> = vec![];
     let mut current = 0;
@@ -9,11 +10,14 @@ pub(crate) fn scan_tokens(source: &str) -> Vec<Token> {
     let mut offset = 0;
 
     while current < chars.len() {
-        let (length, new_line, token) = scan_token(&chars[current..]);
+        let (length, new_line, token) = match scan_token(&chars[current..]) {
+            Ok(scanned) => scanned,
+            Err(ttype) => return Err(Error { ttype, line, offset }),
+        };
 
         if let Some(token) = token {
             tokens.push(Token {
-                r#type: token,
+                ttype: token,
                 lexeme: String::from_iter(&chars[current..current+length]),
                 line,
                 offset,
@@ -34,66 +38,83 @@ pub(crate) fn scan_tokens(source: &str) -> Vec<Token> {
     }
 
     tokens.push(Token {
-        r#type: TokenType::Eof,
+        ttype: TokenType::Eof,
         lexeme: String::new(),
         line,
         offset,
         length: 0
     });
-    tokens
+
+    Ok(tokens)
 }
 
 fn scan_token(
     chars: &[char]
-) -> (usize, bool, Option<TokenType>) {
+) -> Result<(usize, bool, Option<TokenType>), ErrorType> {
     let curr = chars[0];
     let next = chars.get(1);
     match curr {
-        '(' => (1, false, Some(TokenType::ParenL)),
-        ')' => (1, false, Some(TokenType::ParenR)),
-        '{' => (1, false, Some(TokenType::BraceL)),
-        '}' => (1, false, Some(TokenType::BraceR)),
-        ',' => (1, false, Some(TokenType::Comma)),
-        '.' => (1, false, Some(TokenType::Dot)),
-        '-' => (1, false, Some(TokenType::Minus)),
-        '+' => (1, false, Some(TokenType::Plus)),
-        ';' => (1, false, Some(TokenType::Semicolon)),
-        '*' => (1, false, Some(TokenType::Star)),
+        // single char
+        '(' | ')' | '{' | '}' | ',' | '.' | '-' | '+' | ';' | '*' => {
+            let ttype = match curr {
+                '(' => TokenType::ParenL,
+                ')' => TokenType::ParenR,
+                '{' => TokenType::BraceL,
+                '}' => TokenType::BraceR,
+                ',' => TokenType::Comma,
+                '.' => TokenType::Dot,
+                '-' => TokenType::Minus,
+                '+' => TokenType::Plus,
+                ';' => TokenType::Semicolon,
+                '*' => TokenType::Star,
+                _ => unreachable!(),
+            };
+            Ok((1, false, Some(ttype)))
+        }
+        // comparison
         '!' => match next {
-            Some('=') => (2, false, Some(TokenType::BangEqual)),
-            _ => (1, false, Some(TokenType::Bang)),
+            Some('=') => Ok((2, false, Some(TokenType::BangEqual))),
+            _ => Ok((1, false, Some(TokenType::Bang))),
         },
         '=' => match next {
-            Some('=') => (2, false, Some(TokenType::EqualEqual)),
-            _ => (1, false, Some(TokenType::Equal)),
+            Some('=') => Ok((2, false, Some(TokenType::EqualEqual))),
+            _ => Ok((1, false, Some(TokenType::Equal))),
         },
         '<' => match next {
-            Some('=') => (2, false, Some(TokenType::LessEqual)),
-            _ => (1, false, Some(TokenType::Less)),
+            Some('=') => Ok((2, false, Some(TokenType::LessEqual))),
+            _ => Ok((1, false, Some(TokenType::Less))),
         },
         '>' => match next {
-            Some('=') => (2, false, Some(TokenType::GreaterEqual)),
-            _ => (1, false, Some(TokenType::Greater)),
+            Some('=') => Ok((2, false, Some(TokenType::GreaterEqual))),
+            _ => Ok((1, false, Some(TokenType::Greater))),
         },
+        // div | comment
         '/' => match next {
             Some('/') => {
                 let consumed = chars.iter()
                     .position(|&c| c == '\n')
                     .unwrap_or(chars.len());
-                (consumed, false, None)
+                Ok((consumed, false, None))
             },
-            _ => (1, false, Some(TokenType::Slash)),
+            _ => Ok((1, false, Some(TokenType::Slash))),
         }
-        ' ' | '\r' | '\t' => (1, false, None),
-        '\n' => (1, true, None),
+        // whitespace
+        ' ' | '\r' | '\t' => Ok((1, false, None)),
+        // newline
+        '\n' => Ok((1, true, None)),
+        // strings
         '"' => {
             let consumed = chars[1..].iter()
                 .position(|&c| c == '"')
-                .map(|n| n + 2)
-                .expect("Unterminated string.");
+                .map(|n| n + 2);
+            let consumed = match consumed {
+                Some(n) => n,
+                None => return Err(ErrorType::UnterminatedString),
+            };
             let literal = String::from_iter(&chars[1..consumed-1]);
-            (consumed, false, Some(TokenType::Str(literal)))
+            Ok((consumed, false, Some(TokenType::Str(literal))))
         },
+        // numbers
         '0'..='9' => {
             let maybe_dot = chars.iter()
                 .position(|c| !c.is_numeric())
@@ -110,10 +131,14 @@ fn scan_token(
                 _ => maybe_dot,
             };
 
-            let literal: f64 = String::from_iter(&chars[..end]).parse()
-                .expect("Couldn't parse number.");
-            (end, false, Some(TokenType::Num(literal)))
+            let literal = String::from_iter(&chars[..end]).parse::<f64>();
+            let literal = match literal {
+                Ok(n) => n,
+                Err(_) => return Err(ErrorType::MalformedNumber),
+            };
+            Ok((end, false, Some(TokenType::Num(literal))))
         },
+        // identifiers
         'a'..='z' | 'A'..='Z' | '_' => {
             let consumed = chars.iter()
                 .position(|&c| !c.is_alphanumeric() && c != '_')
@@ -137,8 +162,9 @@ fn scan_token(
                 "while" => TokenType::While,
                 other   => TokenType::Ident(String::from(other)),
             };
-            (consumed, false, Some(token_type))
+            Ok((consumed, false, Some(token_type)))
         },
-        _ => panic!("Unexpected character.")
+        // other
+        _ => Err(ErrorType::InvalidCharacter(curr)),
     }
 }

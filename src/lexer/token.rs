@@ -1,8 +1,8 @@
-use crate::lexer::token_type::TokenType;
+use super::token_type::TokenType;
 
 
 pub(crate) struct Token {
-    pub(crate) r#type: TokenType,
+    pub(crate) ttype: TokenType,
     pub(crate) lexeme: String,
     pub(crate) line: usize,
     pub(crate) offset: usize,
@@ -11,7 +11,7 @@ pub(crate) struct Token {
 
 impl ToString for Token {
     fn to_string(&self) -> String {
-        let token_type = self.r#type.to_string();
+        let token_type = self.ttype.to_string();
         let lexeme = &self.lexeme;
         let line = self.line;
         let start = self.offset;

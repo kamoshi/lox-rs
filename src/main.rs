@@ -1,7 +1,10 @@
 use std::{env, fs, io::{self, Write}, process, error::Error};
 
+use crate::error::LoxError;
+
 mod lexer;
 mod parser;
+mod error;
 
 
 fn main() {
@@ -22,7 +25,7 @@ fn main() {
 
 fn run_file(path: &str) {
     let source = fs::read_to_string(path).expect("Couldn't read");
-    let result = run(&source).unwrap_or_else(|_| process::exit(65));
+    let result = run(&source); //.unwrap_or_else(|_| process::exit(65));
 }
 
 fn run_prompt() {
@@ -45,9 +48,14 @@ fn run_prompt() {
     }
 }
 
-fn run(source: &str) -> Result<(), Box<dyn Error>> {
-    let tokens = lexer::scan_tokens(source);
+fn run(source: &str) {
+    let tokens = match lexer::scan_tokens(source) {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            err.report();
+            return;
+        },
+    };
     let ast = parser::parse(&tokens);
     println!("{}", ast.to_string());
-    Ok(())
 }

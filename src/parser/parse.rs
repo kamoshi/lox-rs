@@ -31,7 +31,7 @@ fn equality(
     let (mut consumed, mut expr) = comparison(tokens);
 
     while matches(tokens.get(consumed), &[TokenType::BangEqual, TokenType::EqualEqual]) {
-        let op = match tokens[consumed].r#type {
+        let op = match tokens[consumed].ttype {
             TokenType::BangEqual    => OpBinary::NotEqual,
             TokenType::EqualEqual   => OpBinary::Equal,
             _ => unreachable!(),
@@ -52,7 +52,7 @@ fn comparison(
     let (mut consumed, mut expr) = term(tokens);
 
     while matches(tokens.get(consumed), &[TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual]) {
-        let op = match tokens[consumed].r#type {
+        let op = match tokens[consumed].ttype {
             TokenType::Greater      => OpBinary::Greater,
             TokenType::GreaterEqual => OpBinary::GreaterEqual,
             TokenType::Less         => OpBinary::Less,
@@ -76,7 +76,7 @@ fn term(
     let (mut consumed, mut expr) = factor(tokens);
 
     while matches(tokens.get(consumed), &[TokenType::Minus, TokenType::Plus]) {
-        let op = match tokens[consumed].r#type {
+        let op = match tokens[consumed].ttype {
             TokenType::Minus    => OpBinary::Sub,
             TokenType::Plus     => OpBinary::Add,
             _ => unreachable!(),
@@ -96,7 +96,7 @@ fn factor(
     let (mut consumed, mut expr) = unary(tokens);
 
     while matches(tokens.get(consumed), &[TokenType::Slash, TokenType::Star]) {
-        let op = match tokens[consumed].r#type {
+        let op = match tokens[consumed].ttype {
             TokenType::Slash    => OpBinary::Div,
             TokenType::Star     => OpBinary::Mul,
             _ => unreachable!(),
@@ -114,9 +114,9 @@ fn unary(
     tokens: &[Token]
 ) -> (usize, Box<Expr>) {
     let next = &tokens[0];
-    match next.r#type {
+    match next.ttype {
         TokenType::Bang | TokenType::Minus => {
-            let op = match next.r#type {
+            let op = match next.ttype {
                 TokenType::Bang     => OpUnary::Not,
                 TokenType::Minus    => OpUnary::Neg,
                 _ => unreachable!()
@@ -135,7 +135,7 @@ fn primary(
     let next = &tokens[0];
 
     use Literal::*;
-    let (consumed, variant) = match &next.r#type {
+    let (consumed, variant) = match &next.ttype {
         TokenType::Num(num) => (1, Box::new(Expr::Literal(Num(*num)))),
         TokenType::Str(str) => (1, Box::new(Expr::Literal(Str(str.to_owned())))),
         TokenType::True     => (1, Box::new(Expr::Literal(True))),
@@ -158,6 +158,6 @@ fn matches(
     tts: &[TokenType],
 ) -> bool {
     token
-        .map(|token| tts.iter().any(|tt| *tt == token.r#type))
+        .map(|token| tts.iter().any(|tt| *tt == token.ttype))
         .unwrap_or(false)
 }
