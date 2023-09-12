@@ -4,6 +4,7 @@ use crate::error::LoxError;
 mod lexer;
 mod parser;
 mod error;
+mod interpreter;
 
 
 fn main() {
@@ -62,5 +63,6 @@ fn run(source: &str) {
             return;
         },
     };
-    println!("{}", ast.to_string());
+    let result = interpreter::eval_expr(&ast);
+    println!("{}", result);
 }
