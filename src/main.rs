@@ -63,6 +63,12 @@ fn run(source: &str) {
             return;
         },
     };
-    let result = interpreter::eval_expr(&ast);
+    let result = match interpreter::eval_expr(&ast) {
+        Ok(res) => res,
+        Err(err) => {
+            err.report();
+            return
+        },
+    };
     println!("{}", result);
 }

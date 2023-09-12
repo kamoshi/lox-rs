@@ -1,8 +1,9 @@
-use crate::error::LoxError;
+use crate::{error::LoxError, lexer::token_type::TokenType};
 
 
 pub enum ErrorType {
     MissingRightParen,
+    InvalidToken(TokenType),
 }
 
 pub struct Error {
@@ -11,8 +12,10 @@ pub struct Error {
 
 impl LoxError for Error {
     fn report(&self) {
-        let message = match self.ttype {
-            ErrorType::MissingRightParen => format!("Missing right parenthesis"),
+        use ErrorType::*;
+        let message = match &self.ttype {
+            MissingRightParen => format!("Missing right parenthesis"),
+            InvalidToken(token) => format!("Invalid token found {token}"),
         };
 
         eprintln!("{message}");

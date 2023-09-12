@@ -150,7 +150,7 @@ fn primary(
 
             (2 + consumed, expr)
         },
-        _ => unimplemented!(),
+        tt => return Err(Error { ttype: ErrorType::InvalidToken(tt.to_owned()) }),
     };
 
     Ok((consumed, variant))

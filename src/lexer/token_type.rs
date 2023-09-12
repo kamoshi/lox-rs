@@ -1,5 +1,8 @@
-#[derive(Debug, PartialEq)]
-pub(crate) enum TokenType {
+use std::fmt::Display;
+
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum TokenType {
 
     // Single-character tokens
     ParenL, ParenR, BraceL, BraceR,
@@ -21,10 +24,10 @@ pub(crate) enum TokenType {
     Eof,
 }
 
-impl ToString for TokenType {
-    fn to_string(&self) -> String {
+impl Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use TokenType::*;
-        match self {
+        let str = match self {
             ParenL          => String::from("paren-l"),
             ParenR          => String::from("paren-r"),
             BraceL          => String::from("brace-l"),
@@ -64,6 +67,8 @@ impl ToString for TokenType {
             Var             => String::from("var"),
             While           => String::from("while"),
             Eof             => String::from("EOF"),
-        }
+        };
+
+        write!(f, "{str}")
     }
 }

@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use super::token_type::TokenType;
 
 
@@ -9,13 +10,13 @@ pub(crate) struct Token {
     pub(crate) length: usize,
 }
 
-impl ToString for Token {
-    fn to_string(&self) -> String {
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let token_type = self.ttype.to_string();
         let lexeme = &self.lexeme;
         let line = self.line;
         let start = self.offset;
         let end = self.offset + self.length;
-        format!("({token_type}, '{lexeme}') {line}:{start}-{end}")
+        write!(f, "({token_type}, '{lexeme}') {line}:{start}-{end}")
     }
 }
