@@ -1,34 +1,72 @@
 use crate::lexer::{token::Token, token_type::TokenType};
 use super::expr::{Expr, OpBinary, Literal, OpUnary};
 use super::error::{Error, ErrorType};
+use super::stmt::Stmt;
 
 
-// expression  ::= equality ;
-// equality    ::= comparison ( ( "!=" | "==" ) comparison )* ;
-// comparison  ::= term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-// term        ::= factor ( ( "-" | "+" ) factor )* ;
-// factor      ::= unary ( ( "/" | "*" ) unary )* ;
-// unary       ::= ( "!" | "-" ) unary
-//                 | primary ;
-// primary     ::= NUMBER | STRING | "true" | "false" | "nil"
-//                 | "(" expression ")" ;
+// program      → statement* EOF ;
+//
+// statement    → stmtExpr
+//              | stmtPrnt ;
+//
+// stmtExpr     → expression ";" ;
+// stmtPrnt     → "print" expression ";" ;
+//
+// expression   → equality ;
+// equality     → comparison ( ( "!=" | "==" ) comparison )* ;
+// comparison   → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+// term         → factor ( ( "-" | "+" ) factor )* ;
+// factor       → unary ( ( "/" | "*" ) unary )* ;
+// unary        → ( "!" | "-" ) unary
+//              | primary ;
+// primary      → NUMBER | STRING | "true" | "false" | "nil"
+//              | "(" expression ")" ;
 
-pub(crate) fn parse(
-    tokens: &[Token]
-) -> Result<Box<Expr>, Error> {
-    let (_, expr) = expression(tokens)?;
-    Ok(expr)
+pub(crate) fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, Error> {
+    let mut statements = vec![];
+    let mut curr = 0;
+
+    while curr < tokens.len() {
+        if tokens.get(curr).map(|t| t.ttype == TokenType::Eof).unwrap_or(false) { break };
+        let (consumed, stmt) = statement(&tokens[curr..])?;
+
+        statements.push(stmt);
+        curr += consumed;
+    }
+
+    return Ok(statements);
 }
 
-fn expression(
-    tokens: &[Token]
-) -> Result<(usize, Box<Expr>), Error> {
+fn statement(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+    match tokens.get(0).map(|t| &t.ttype) {
+        Some(TokenType::Print) => stmt_prnt(&tokens[1..]),
+        _ => stmt_expr(tokens),
+    }
+}
+
+fn stmt_expr(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+    let (consumed, expr) = expression(tokens)?;
+
+    match tokens.get(consumed).map(|t| &t.ttype) {
+        Some(TokenType::Semicolon) => Ok((consumed + 1, Stmt::Expression(expr))),
+        _ => Err(Error { ttype: ErrorType::MissingSemicolon }),
+    }
+}
+
+fn stmt_prnt(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+    let (consumed, expr) = expression(tokens)?;
+
+    match tokens.get(consumed).map(|t| &t.ttype) {
+        Some(TokenType::Semicolon) => Ok((consumed + 2, Stmt::Print(expr))),
+        _ => Err(Error { ttype: ErrorType::MissingSemicolon }),
+    }
+}
+
+fn expression(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     equality(tokens)
 }
 
-fn equality(
-    tokens: &[Token]
-) -> Result<(usize, Box<Expr>), Error> {
+fn equality(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let (mut consumed, mut expr) = comparison(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::BangEqual, TokenType::EqualEqual]) {
@@ -47,9 +85,7 @@ fn equality(
 }
 
 
-fn comparison(
-    tokens: &[Token]
-) -> Result<(usize, Box<Expr>), Error> {
+fn comparison(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let (mut consumed, mut expr) = term(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual]) {
@@ -69,9 +105,7 @@ fn comparison(
     Ok((consumed, expr))
 }
 
-fn term(
-    tokens: &[Token]
-) -> Result<(usize, Box<Expr>), Error> {
+fn term(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let (mut consumed, mut expr) = factor(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::Minus, TokenType::Plus]) {
@@ -89,9 +123,7 @@ fn term(
     Ok((consumed, expr))
 }
 
-fn factor(
-    tokens: &[Token]
-) -> Result<(usize, Box<Expr>), Error> {
+fn factor(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let (mut consumed, mut expr) = unary(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::Slash, TokenType::Star]) {
@@ -109,9 +141,7 @@ fn factor(
     Ok((consumed, expr))
 }
 
-fn unary(
-    tokens: &[Token]
-) -> Result<(usize, Box<Expr>), Error> {
+fn unary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let next = &tokens[0];
     match next.ttype {
         TokenType::Bang | TokenType::Minus => {
@@ -128,9 +158,7 @@ fn unary(
     }
 }
 
-fn primary(
-    tokens: &[Token]
-) -> Result<(usize, Box<Expr>), Error> {
+fn primary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let next = &tokens[0];
 
     use Literal::*;
@@ -156,10 +184,7 @@ fn primary(
     Ok((consumed, variant))
 }
 
-fn matches(
-    token: Option<&Token>,
-    tts: &[TokenType],
-) -> bool {
+fn matches(token: Option<&Token>, tts: &[TokenType]) -> bool {
     token
         .map(|token| tts.iter().any(|tt| *tt == token.ttype))
         .unwrap_or(false)

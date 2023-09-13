@@ -63,12 +63,13 @@ fn run(source: &str) {
             return;
         },
     };
-    let result = match interpreter::eval_expr(&ast) {
-        Ok(res) => res,
-        Err(err) => {
-            err.report();
-            return
-        },
-    };
-    println!("{}", result);
+    for stmt in ast {
+        match interpreter::run_stmt(&stmt) {
+            Ok(_) => (),
+            Err(err) => {
+                err.report();
+                return
+            },
+        }
+    }
 }

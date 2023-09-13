@@ -1,10 +1,13 @@
-type RecExpr = Box<Expr>;
+use std::fmt::Display;
+
+
+type ExprRef = Box<Expr>;
 
 pub(crate) enum Expr {
     Literal(Literal),
-    Unary(OpUnary, RecExpr),
-    Binary(RecExpr, OpBinary, RecExpr),
-    Grouping(RecExpr),
+    Unary(OpUnary, ExprRef),
+    Binary(ExprRef, OpBinary, ExprRef),
+    Grouping(ExprRef),
 }
 
 pub(crate) enum Literal {
@@ -32,9 +35,9 @@ pub(crate) enum OpBinary {
     Div,
 }
 
-impl ToString for Expr {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
             Expr::Grouping(expr) => format!("({})", expr.to_string()),
             Expr::Unary(op, expr) => {
                 let op = match op {
@@ -67,6 +70,7 @@ impl ToString for Expr {
                 Literal::False      => "false".to_owned(),
                 Literal::Nil        => "nil".to_owned(),
             },
-        }
+        };
+        write!(f, "{str}")
     }
 }

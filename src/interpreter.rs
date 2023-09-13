@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use crate::{parser::expr::{Expr, Literal, OpUnary, OpBinary}, error::LoxError};
+use crate::{parser::{expr::{Expr, Literal, OpUnary, OpBinary}, stmt::Stmt}, error::LoxError};
 
 
 #[derive(PartialEq)]
@@ -35,6 +35,26 @@ impl LoxError for Error {
 
         eprintln!("{message}");
     }
+}
+
+
+pub(crate) fn run_stmt(stmt: &Stmt) -> Result<(), Error> {
+    match stmt {
+        Stmt::Expression(expr) => run_stmt_expr(expr)?,
+        Stmt::Print(expr)      => run_stmt_prnt(expr)?,
+    };
+    Ok(())
+}
+
+fn run_stmt_expr(expr: &Expr) -> Result<(), Error> {
+    eval_expr(expr)?;
+    Ok(())
+}
+
+fn run_stmt_prnt(expr: &Expr) -> Result<(), Error> {
+    let res = eval_expr(expr)?;
+    print!("{res}");
+    Ok(())
 }
 
 
