@@ -1,5 +1,5 @@
 use crate::lexer::{token::Token, token_type::TokenType};
-use super::expr::{Expr, OpBinary, Literal, OpUnary, self};
+use super::expr::{Expr, OpBinary, Literal, OpUnary};
 use super::error::{Error, ErrorType};
 use super::stmt::Stmt;
 

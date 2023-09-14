@@ -26,32 +26,17 @@ fn main() {
 
 fn run_file(path: &str) {
     let source = fs::read_to_string(path).expect("Couldn't read");
-    let result = run(&source); //.unwrap_or_else(|_| process::exit(65));
+    let _result = run(&source); //.unwrap_or_else(|_| process::exit(65));
 }
 
 
 fn run(source: &str) {
-    let tokens = match lexer::tokenize(source) {
-        Ok(tokens) => tokens,
-        Err(err) => {
-            err.report();
-            return;
-        },
-    };
-    let ast = match parser::parse(&tokens) {
-        Ok(ast) => ast,
-        Err(err) => {
-            err.report();
-            return;
-        },
-    };
-    for stmt in ast {
-        match interpreter::exec_stmt(&stmt) {
-            Ok(_) => (),
-            Err(err) => {
-                err.report();
-                return
-            },
-        }
+    let result = lexer::tokenize(source).map_err(LoxError::wrap)
+        .and_then(|tokens| parser::parse(&tokens).map_err(LoxError::wrap))
+        .and_then(|stmts| interpreter::exec(&stmts).map_err(LoxError::wrap));
+
+    match result {
+        Ok(_) => (),
+        Err(err) => err.report(),
     }
 }

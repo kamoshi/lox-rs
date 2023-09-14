@@ -37,21 +37,27 @@ impl LoxError for Error {
     }
 }
 
-
-pub(crate) fn exec_stmt(stmt: &Stmt) -> Result<(), Error> {
-    match stmt {
-        Stmt::Expression(expr) => run_stmt_expr(expr)?,
-        Stmt::Print(expr)      => run_stmt_prnt(expr)?,
+pub(crate) fn exec(stmts: &[Stmt]) -> Result<(), Error> {
+    for stmt in stmts {
+        exec_stmt(stmt)?;
     };
     Ok(())
 }
 
-fn run_stmt_expr(expr: &Expr) -> Result<(), Error> {
+fn exec_stmt(stmt: &Stmt) -> Result<(), Error> {
+    match stmt {
+        Stmt::Expression(expr) => exec_stmt_expr(expr)?,
+        Stmt::Print(expr)      => exec_stmt_prnt(expr)?,
+    };
+    Ok(())
+}
+
+fn exec_stmt_expr(expr: &Expr) -> Result<(), Error> {
     eval_expr(expr)?;
     Ok(())
 }
 
-fn run_stmt_prnt(expr: &Expr) -> Result<(), Error> {
+fn exec_stmt_prnt(expr: &Expr) -> Result<(), Error> {
     let res = eval_expr(expr)?;
     print!("{res}");
     Ok(())
