@@ -38,7 +38,7 @@ impl LoxError for Error {
 }
 
 
-pub(crate) fn run_stmt(stmt: &Stmt) -> Result<(), Error> {
+pub(crate) fn exec_stmt(stmt: &Stmt) -> Result<(), Error> {
     match stmt {
         Stmt::Expression(expr) => run_stmt_expr(expr)?,
         Stmt::Print(expr)      => run_stmt_prnt(expr)?,

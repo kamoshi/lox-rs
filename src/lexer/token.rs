@@ -12,11 +12,11 @@ pub(crate) struct Token {
 
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let token_type = self.ttype.to_string();
+        let token_type = &self.ttype;
         let lexeme = &self.lexeme;
         let line = self.line;
         let start = self.offset;
         let end = self.offset + self.length;
-        write!(f, "({token_type}, '{lexeme}') {line}:{start}-{end}")
+        write!(f, "({token_type} '{lexeme}' {line}:{start}-{end})")
     }
 }

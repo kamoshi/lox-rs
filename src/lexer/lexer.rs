@@ -2,7 +2,7 @@ use crate::lexer::{token::Token, token_type::TokenType};
 use super::error::{Error, ErrorType};
 
 
-pub(crate) fn scan_tokens(source: &str) -> Result<Vec<Token>, Error> {
+pub(crate) fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
     let chars: Vec<char> = source.chars().collect();
     let mut tokens: Vec<Token> = vec![];
     let mut current = 0;
@@ -10,7 +10,7 @@ pub(crate) fn scan_tokens(source: &str) -> Result<Vec<Token>, Error> {
     let mut offset = 0;
 
     while current < chars.len() {
-        let (length, new_line, token) = match scan_token(&chars[current..]) {
+        let (length, new_line, token) = match read_token(&chars[current..]) {
             Ok(scanned) => scanned,
             Err(ttype) => return Err(Error { ttype, line, offset }),
         };
@@ -48,7 +48,7 @@ pub(crate) fn scan_tokens(source: &str) -> Result<Vec<Token>, Error> {
     Ok(tokens)
 }
 
-fn scan_token(
+fn read_token(
     chars: &[char]
 ) -> Result<(usize, bool, Option<TokenType>), ErrorType> {
     let curr = chars[0];

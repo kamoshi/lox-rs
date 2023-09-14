@@ -5,6 +5,7 @@ pub enum ErrorType {
     MissingRightParen,
     InvalidToken(TokenType),
     MissingSemicolon,
+    ExprLeftover,
 }
 
 pub struct Error {
@@ -18,6 +19,7 @@ impl LoxError for Error {
             MissingRightParen => format!("Missing right parenthesis"),
             InvalidToken(token) => format!("Invalid token found {token}"),
             MissingSemicolon => format!("Missing semicolon after statement"),
+            ExprLeftover => format!("Invalid tokens after expression"),
         };
 
         eprintln!("{message}");

@@ -27,4 +27,3 @@ impl LoxError for Error {
         eprintln!("{}", message);
     }
 }
-

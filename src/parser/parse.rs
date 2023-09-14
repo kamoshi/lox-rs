@@ -1,5 +1,5 @@
 use crate::lexer::{token::Token, token_type::TokenType};
-use super::expr::{Expr, OpBinary, Literal, OpUnary};
+use super::expr::{Expr, OpBinary, Literal, OpUnary, self};
 use super::error::{Error, ErrorType};
 use super::stmt::Stmt;
 
@@ -36,6 +36,16 @@ pub(crate) fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, Error> {
 
     return Ok(statements);
 }
+
+pub(crate) fn parse_expr(tokens: &[Token]) -> Result<Expr, Error> {
+    let (consumed, expr) = expression(tokens)?;
+    match tokens.get(consumed).map(|t| &t.ttype) {
+        Some(TokenType::Eof) => Ok(*expr),
+        None => Ok(*expr),
+        _ => Err(Error { ttype: ErrorType::ExprLeftover })
+    }
+}
+
 
 fn statement(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     match tokens.get(0).map(|t| &t.ttype) {
