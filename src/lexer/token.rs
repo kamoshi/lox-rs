@@ -2,12 +2,13 @@ use std::fmt::Display;
 use super::token_type::TokenType;
 
 
-pub(crate) struct Token {
-    pub(crate) ttype: TokenType,
-    pub(crate) lexeme: String,
-    pub(crate) line: usize,
-    pub(crate) offset: usize,
-    pub(crate) length: usize,
+#[derive(Debug)]
+pub struct Token {
+    pub ttype: TokenType,
+    pub lexeme: String,
+    pub line: usize,
+    pub offset: usize,
+    pub length: usize,
 }
 
 impl Display for Token {

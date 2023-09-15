@@ -31,11 +31,17 @@ fn run_file(path: &str) {
 
 
 fn run(source: &str) {
-    let result = lexer::tokenize(source).map_err(LoxError::wrap)
-        .and_then(|tokens| parser::parse(&tokens).map_err(LoxError::wrap))
-        .and_then(|stmts| interpreter::exec(&stmts).map_err(LoxError::wrap));
+    let tokens = match lexer::tokenize(source) {
+        Ok(tokens) => tokens,
+        Err(error) => return error.report(),
+    };
 
-    match result {
+    let ast = match parser::parse(&tokens) {
+        Ok(ast) => ast,
+        Err(error) => return error.report(),
+    };
+
+    match interpreter::exec(&ast) {
         Ok(_) => (),
         Err(err) => err.report(),
     }

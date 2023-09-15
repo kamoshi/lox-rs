@@ -42,7 +42,10 @@ pub(crate) fn parse_expr(tokens: &[Token]) -> Result<Expr, Error> {
     match tokens.get(consumed).map(|t| &t.ttype) {
         Some(TokenType::Eof) => Ok(*expr),
         None => Ok(*expr),
-        _ => Err(Error { ttype: ErrorType::ExprLeftover })
+        _ => Err(Error {
+            ttype: ErrorType::ExprLeftover,
+            line: Some(tokens[consumed].line),
+        })
     }
 }
 
@@ -59,7 +62,10 @@ fn stmt_expr(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
 
     match tokens.get(consumed).map(|t| &t.ttype) {
         Some(TokenType::Semicolon) => Ok((consumed + 1, Stmt::Expression(expr))),
-        _ => Err(Error { ttype: ErrorType::MissingSemicolon }),
+        _ => Err(Error {
+            ttype: ErrorType::MissingSemicolon,
+            line: None,
+        }),
     }
 }
 
@@ -68,7 +74,10 @@ fn stmt_prnt(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
 
     match tokens.get(consumed).map(|t| &t.ttype) {
         Some(TokenType::Semicolon) => Ok((consumed + 2, Stmt::Print(expr))),
-        _ => Err(Error { ttype: ErrorType::MissingSemicolon }),
+        _ => Err(Error {
+            ttype: ErrorType::MissingSemicolon,
+            line: None,
+        }),
     }
 }
 
@@ -183,12 +192,18 @@ fn primary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 
             let expr = match tokens.get(1 + consumed).map(|t| &t.ttype) {
                 Some(TokenType::ParenR) => Box::new(Expr::Grouping(expr)),
-                _ => return Err(Error { ttype: ErrorType::MissingRightParen }),
+                _ => return Err(Error {
+                    ttype: ErrorType::MissingRightParen,
+                    line: None, // TODO
+                }),
             };
 
             (2 + consumed, expr)
         },
-        tt => return Err(Error { ttype: ErrorType::InvalidToken(tt.to_owned()) }),
+        tt => return Err(Error {
+            ttype: ErrorType::InvalidToken(tt.to_owned()),
+            line: Some(next.line)
+        }),
     };
 
     Ok((consumed, variant))

@@ -1,14 +1,16 @@
 use std::fmt::Display;
 
 
-pub(crate) enum Expr {
+#[derive(Debug)]
+pub enum Expr {
     Literal(Literal),
     Unary(OpUnary, Box<Expr>),
     Binary(Box<Expr>, OpBinary, Box<Expr>),
     Grouping(Box<Expr>),
 }
 
-pub(crate) enum Literal {
+#[derive(Debug)]
+pub enum Literal {
     Num(f64),
     Str(String),
     True,
@@ -16,11 +18,13 @@ pub(crate) enum Literal {
     Nil,
 }
 
-pub(crate) enum OpUnary {
+#[derive(Debug)]
+pub enum OpUnary {
     Not, Neg
 }
 
-pub(crate) enum OpBinary {
+#[derive(Debug)]
+pub enum OpBinary {
     Equal,
     NotEqual,
     Less,

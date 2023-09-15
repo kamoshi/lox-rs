@@ -1,7 +1,8 @@
 use super::expr::Expr;
 
 
-pub(crate) enum Stmt {
+#[derive(Debug)]
+pub enum Stmt {
     Expression(Box<Expr>),
     Print(Box<Expr>),
 }

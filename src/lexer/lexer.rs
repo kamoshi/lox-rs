@@ -2,46 +2,33 @@ use crate::lexer::{token::Token, token_type::TokenType};
 use super::error::{Error, ErrorType};
 
 
-pub(crate) fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
-    let chars: Vec<char> = source.chars().collect();
-    let mut tokens: Vec<Token> = vec![];
-    let mut current = 0;
-    let mut line = 1;
-    let mut offset = 0;
+pub fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
+    let mut tokens = vec![];
 
-    while current < chars.len() {
-        let (length, new_line, token) = match read_token(&chars[current..]) {
-            Ok(scanned) => scanned,
-            Err(ttype) => return Err(Error { ttype, line, offset }),
-        };
+    for (line, line_str) in source.lines().enumerate() {
+        let chars = line_str.chars().collect::<Vec<_>>();
+        let mut offset = 0;
 
-        if let Some(token) = token {
-            tokens.push(Token {
-                ttype: token,
-                lexeme: String::from_iter(&chars[current..current+length]),
-                line,
-                offset,
-                length,
-            });
-        }
+        while offset < chars.len() {
+            let (length, token) = match read_token(&chars[offset..]) {
+                Ok(lexed) => lexed,
+                Err(ttype) => return Err(Error { ttype, line_str, line, offset }),
+            };
 
-        current += length;
-        match new_line {
-            true => {
-                line += 1;
-                offset = 0;
-            },
-            false => {
-                offset += length;
-            },
+            if let Some(ttype) = token {
+                let lexeme = String::from_iter(&chars[offset..offset+length]);
+                tokens.push(Token { ttype, lexeme, line, offset, length });
+            }
+
+            offset += length;
         }
     }
 
     tokens.push(Token {
         ttype: TokenType::Eof,
         lexeme: String::new(),
-        line,
-        offset,
+        line: tokens.last().map(|t| t.line + 1).unwrap_or(1),
+        offset: 0,
         length: 0
     });
 
@@ -50,7 +37,7 @@ pub(crate) fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
 
 fn read_token(
     chars: &[char]
-) -> Result<(usize, bool, Option<TokenType>), ErrorType> {
+) -> Result<(usize, Option<TokenType>), ErrorType> {
     let curr = chars[0];
     let next = chars.get(1);
     match curr {
@@ -69,24 +56,24 @@ fn read_token(
                 '*' => TokenType::Star,
                 _ => unreachable!(),
             };
-            Ok((1, false, Some(ttype)))
+            Ok((1, Some(ttype)))
         }
         // comparison
         '!' => match next {
-            Some('=') => Ok((2, false, Some(TokenType::BangEqual))),
-            _ => Ok((1, false, Some(TokenType::Bang))),
+            Some('=') => Ok((2, Some(TokenType::BangEqual))),
+            _ => Ok((1, Some(TokenType::Bang))),
         },
         '=' => match next {
-            Some('=') => Ok((2, false, Some(TokenType::EqualEqual))),
-            _ => Ok((1, false, Some(TokenType::Equal))),
+            Some('=') => Ok((2, Some(TokenType::EqualEqual))),
+            _ => Ok((1, Some(TokenType::Equal))),
         },
         '<' => match next {
-            Some('=') => Ok((2, false, Some(TokenType::LessEqual))),
-            _ => Ok((1, false, Some(TokenType::Less))),
+            Some('=') => Ok((2, Some(TokenType::LessEqual))),
+            _ => Ok((1, Some(TokenType::Less))),
         },
         '>' => match next {
-            Some('=') => Ok((2, false, Some(TokenType::GreaterEqual))),
-            _ => Ok((1, false, Some(TokenType::Greater))),
+            Some('=') => Ok((2, Some(TokenType::GreaterEqual))),
+            _ => Ok((1, Some(TokenType::Greater))),
         },
         // div | comment
         '/' => match next {
@@ -94,14 +81,12 @@ fn read_token(
                 let consumed = chars.iter()
                     .position(|&c| c == '\n')
                     .unwrap_or(chars.len());
-                Ok((consumed, false, None))
+                Ok((consumed, None))
             },
-            _ => Ok((1, false, Some(TokenType::Slash))),
+            _ => Ok((1, Some(TokenType::Slash))),
         }
         // whitespace
-        ' ' | '\r' | '\t' => Ok((1, false, None)),
-        // newline
-        '\n' => Ok((1, true, None)),
+        ' ' | '\r' | '\t' => Ok((1, None)),
         // strings
         '"' => {
             let consumed = chars[1..].iter()
@@ -112,7 +97,7 @@ fn read_token(
                 None => return Err(ErrorType::UnterminatedString),
             };
             let literal = String::from_iter(&chars[1..consumed-1]);
-            Ok((consumed, false, Some(TokenType::Str(literal))))
+            Ok((consumed, Some(TokenType::Str(literal))))
         },
         // numbers
         '0'..='9' => {
@@ -136,7 +121,7 @@ fn read_token(
                 Ok(n) => n,
                 Err(_) => return Err(ErrorType::MalformedNumber),
             };
-            Ok((end, false, Some(TokenType::Num(literal))))
+            Ok((end, Some(TokenType::Num(literal))))
         },
         // identifiers
         'a'..='z' | 'A'..='Z' | '_' => {
@@ -162,7 +147,7 @@ fn read_token(
                 "while" => TokenType::While,
                 other   => TokenType::Ident(String::from(other)),
             };
-            Ok((consumed, false, Some(token_type)))
+            Ok((consumed, Some(token_type)))
         },
         // other
         _ => Err(ErrorType::InvalidCharacter(curr)),

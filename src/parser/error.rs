@@ -10,18 +10,22 @@ pub enum ErrorType {
 
 pub struct Error {
     pub ttype: ErrorType,
+    pub line: Option<usize>,
 }
 
 impl LoxError for Error {
     fn report(&self) {
         use ErrorType::*;
         let message = match &self.ttype {
-            MissingRightParen => format!("Missing right parenthesis"),
+            MissingRightParen   => "Missing right parenthesis".into(),
             InvalidToken(token) => format!("Invalid token found {token}"),
-            MissingSemicolon => format!("Missing semicolon after statement"),
-            ExprLeftover => format!("Invalid tokens after expression"),
+            MissingSemicolon    => "Missing semicolon after statement".into(),
+            ExprLeftover        => "Invalid tokens after expression".into(),
         };
 
-        eprintln!("{message}");
+        match self.line {
+            Some(line)  => eprintln!("L{line}: {message}"),
+            None        => eprintln!("{message}"),
+        };
     }
 }

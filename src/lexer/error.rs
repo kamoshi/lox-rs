@@ -7,23 +7,27 @@ pub enum ErrorType {
     MalformedNumber,
 }
 
-pub struct Error {
+pub struct Error<'src> {
     pub ttype: ErrorType,
+    pub line_str: &'src str,
     pub line: usize,
     pub offset: usize,
 }
 
-impl LoxError for Error {
+impl LoxError for Error<'_> {
     fn report(&self) {
-        let (line, offset) = (self.line, self.offset);
+        let line_str = self.line_str;
 
         use ErrorType::*;
         let message = match self.ttype {
-            InvalidCharacter(char) => format!("{line}:{offset} Invalid character '{char}'"),
-            UnterminatedString => format!("{line}:{offset} Unterminated string"),
-            MalformedNumber => format!("{line}:{offset} Couldn't parse number"),
+            InvalidCharacter(char) => format!("Invalid character '{char}'"),
+            UnterminatedString => "Unterminated string".into(),
+            MalformedNumber => "Couldn't parse number".into(),
         };
 
-        eprintln!("{}", message);
+        let marker = (0..self.offset).map(|_| ' ').collect::<String>();
+        let line = self.line + 1;
+        let offset = self.offset + 1;
+        eprintln!("Error diagnostics:\n{line_str}\n{marker}^\nL{line}:{offset} {message}");
     }
 }
