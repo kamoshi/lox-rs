@@ -78,9 +78,7 @@ fn read_token(
         // div | comment
         '/' => match next {
             Some('/') => {
-                let consumed = chars.iter()
-                    .position(|&c| c == '\n')
-                    .unwrap_or(chars.len());
+                let consumed = chars.iter().position(|&c| c == '\n').unwrap_or(chars.len());
                 Ok((consumed, None))
             },
             _ => Ok((1, Some(TokenType::Slash))),
@@ -89,34 +87,33 @@ fn read_token(
         ' ' | '\r' | '\t' => Ok((1, None)),
         // strings
         '"' => {
-            let consumed = chars[1..].iter()
-                .position(|&c| c == '"')
-                .map(|n| n + 2);
+            let consumed = chars[1..].iter().position(|&c| c == '"').map(|n| n + 2);
             let consumed = match consumed {
                 Some(n) => n,
                 None => return Err(ErrorType::UnterminatedString),
             };
-            let literal = String::from_iter(&chars[1..consumed-1]);
+            let literal = String::from_iter(&chars[1..consumed - 1]);
             Ok((consumed, Some(TokenType::Str(literal))))
         },
         // numbers
         '0'..='9' => {
-            let maybe_dot = chars.iter()
-                .position(|c| !c.is_numeric())
-                .unwrap_or(chars.len());
+            fn find_non_digit(chars: &[char]) -> usize {
+                chars.iter()
+                    .position(|c| !c.is_ascii_digit())
+                    .unwrap_or(chars.len())
+            }
 
-            let peek = (chars.get(maybe_dot), chars.get(maybe_dot+1));
-            let end = match peek {
+            let fst_end = find_non_digit(chars);
+
+            let end = match (chars.get(fst_end), chars.get(fst_end + 1)) {
                 (Some('.'), Some('0'..='9')) => {
-                    let end = chars[maybe_dot+1..].iter()
-                        .position(|c| !c.is_numeric())
-                        .unwrap_or(chars.len());
-                    maybe_dot + 1 + end
+                    let snd_end = find_non_digit(&chars[fst_end + 1..]);
+                    fst_end + 1 + snd_end
                 },
-                _ => maybe_dot,
+                _ => fst_end,
             };
 
-            let literal = String::from_iter(&chars[..end]).parse::<f64>();
+            let literal = String::from_iter(&chars[..end]).parse();
             let literal = match literal {
                 Ok(n) => n,
                 Err(_) => return Err(ErrorType::MalformedNumber),
