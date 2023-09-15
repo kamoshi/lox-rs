@@ -1,5 +1,6 @@
 use std::fmt::Display;
-use crate::{parser::{expr::{Expr, Literal, OpUnary, OpBinary}, stmt::Stmt}, error::LoxError};
+use crate::parser::ast::{Stmt, Expr, Literal, OpUnary, OpBinary};
+use crate::error::LoxError;
 
 
 #[derive(PartialEq)]

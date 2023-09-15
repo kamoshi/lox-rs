@@ -1,7 +1,6 @@
 use crate::lexer::{token::Token, token_type::TokenType};
-use super::expr::{Expr, OpBinary, Literal, OpUnary};
+use super::ast::{Stmt, Expr, OpBinary, Literal, OpUnary};
 use super::error::{Error, ErrorType};
-use super::stmt::Stmt;
 
 
 // program      → statement* EOF ;
@@ -22,7 +21,9 @@ use super::stmt::Stmt;
 // primary      → NUMBER | STRING | "true" | "false" | "nil"
 //              | "(" expression ")" ;
 
-pub(crate) fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, Error> {
+pub fn parse<'src, 'a>(
+    tokens: &'a [Token]
+) -> Result<Vec<Stmt>, Error<'src>> where 'a: 'src {
     let mut statements = vec![];
     let mut curr = 0;
 
@@ -37,55 +38,85 @@ pub(crate) fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, Error> {
     return Ok(statements);
 }
 
-pub(crate) fn parse_expr(tokens: &[Token]) -> Result<Expr, Error> {
+pub fn parse_expr<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<Expr, Error<'src>> where 'a: 'src {
     let (consumed, expr) = expression(tokens)?;
     match tokens.get(consumed).map(|t| &t.ttype) {
         Some(TokenType::Eof) => Ok(*expr),
         None => Ok(*expr),
-        _ => Err(Error {
-            ttype: ErrorType::ExprLeftover,
-            line: Some(tokens[consumed].line),
-        })
+        _ => {
+            let next = &tokens[consumed];
+            Err(Error {
+                ttype: ErrorType::ExprLeftover,
+                line_str: next.line_str,
+                line: next.line,
+                offset: next.offset,
+                length: next.length,
+            })
+        }
     }
 }
 
 
-fn statement(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+fn statement<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
     match tokens.get(0).map(|t| &t.ttype) {
         Some(TokenType::Print) => stmt_prnt(&tokens[1..]),
         _ => stmt_expr(tokens),
     }
 }
 
-fn stmt_expr(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+fn stmt_expr<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
     let (consumed, expr) = expression(tokens)?;
 
     match tokens.get(consumed).map(|t| &t.ttype) {
         Some(TokenType::Semicolon) => Ok((consumed + 1, Stmt::Expression(expr))),
-        _ => Err(Error {
-            ttype: ErrorType::MissingSemicolon,
-            line: None,
-        }),
+        _ => {
+            let last = &tokens[consumed - 1];
+            Err(Error {
+                ttype: ErrorType::MissingSemicolon,
+                line_str: last.line_str,
+                line: last.line,
+                offset: last.offset + last.length,
+                length: 1,
+            })
+        },
     }
 }
 
-fn stmt_prnt(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+fn stmt_prnt<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
     let (consumed, expr) = expression(tokens)?;
 
     match tokens.get(consumed).map(|t| &t.ttype) {
         Some(TokenType::Semicolon) => Ok((consumed + 2, Stmt::Print(expr))),
-        _ => Err(Error {
-            ttype: ErrorType::MissingSemicolon,
-            line: None,
-        }),
+        _ => {
+            let last = &tokens[consumed - 1];
+            Err(Error {
+                ttype: ErrorType::MissingSemicolon,
+                line_str: last.line_str,
+                line: last.line,
+                offset: last.offset + last.length,
+                length: 1,
+            })
+        },
     }
 }
 
-fn expression(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expression<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
     equality(tokens)
 }
 
-fn equality(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn equality<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
     let (mut consumed, mut expr) = comparison(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::BangEqual, TokenType::EqualEqual]) {
@@ -104,10 +135,13 @@ fn equality(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 }
 
 
-fn comparison(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn comparison<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
     let (mut consumed, mut expr) = term(tokens)?;
 
-    while matches(tokens.get(consumed), &[TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual]) {
+    let signs = &[TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual];
+    while matches(tokens.get(consumed), signs) {
         let op = match tokens[consumed].ttype {
             TokenType::Greater      => OpBinary::Greater,
             TokenType::GreaterEqual => OpBinary::GreaterEqual,
@@ -124,7 +158,9 @@ fn comparison(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((consumed, expr))
 }
 
-fn term(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn term<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
     let (mut consumed, mut expr) = factor(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::Minus, TokenType::Plus]) {
@@ -142,7 +178,9 @@ fn term(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((consumed, expr))
 }
 
-fn factor(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn factor<'src, 'a>(
+    tokens: &'src [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
     let (mut consumed, mut expr) = unary(tokens)?;
 
     while matches(tokens.get(consumed), &[TokenType::Slash, TokenType::Star]) {
@@ -160,7 +198,9 @@ fn factor(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((consumed, expr))
 }
 
-fn unary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn unary<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
     let next = &tokens[0];
     match next.ttype {
         TokenType::Bang | TokenType::Minus => {
@@ -177,32 +217,44 @@ fn unary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     }
 }
 
-fn primary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn primary<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
     let next = &tokens[0];
 
+    use TokenType as TT;
     use Literal::*;
     let (consumed, variant) = match &next.ttype {
-        TokenType::Num(num) => (1, Box::new(Expr::Literal(Num(*num)))),
-        TokenType::Str(str) => (1, Box::new(Expr::Literal(Str(str.to_owned())))),
-        TokenType::True     => (1, Box::new(Expr::Literal(True))),
-        TokenType::False    => (1, Box::new(Expr::Literal(False))),
-        TokenType::Nil      => (1, Box::new(Expr::Literal(Nil))),
-        TokenType::ParenL   => {
+        TT::Num(num) => (1, Box::new(Expr::Literal(Num(*num)))),
+        TT::Str(str) => (1, Box::new(Expr::Literal(Str(str.to_owned())))),
+        TT::True     => (1, Box::new(Expr::Literal(True))),
+        TT::False    => (1, Box::new(Expr::Literal(False))),
+        TT::Nil      => (1, Box::new(Expr::Literal(Nil))),
+        TT::ParenL   => {
             let (consumed, expr) = expression(&tokens[1..])?;
 
             let expr = match tokens.get(1 + consumed).map(|t| &t.ttype) {
                 Some(TokenType::ParenR) => Box::new(Expr::Grouping(expr)),
-                _ => return Err(Error {
-                    ttype: ErrorType::MissingRightParen,
-                    line: None, // TODO
-                }),
+                _ => {
+                    let last = &tokens[consumed];
+                    return Err(Error {
+                        ttype: ErrorType::MissingRightParen,
+                        line_str: last.line_str,
+                        line: last.line,
+                        offset: last.offset + last.length,
+                        length: 1,
+                    })
+                },
             };
 
             (2 + consumed, expr)
         },
         tt => return Err(Error {
             ttype: ErrorType::InvalidToken(tt.to_owned()),
-            line: Some(next.line)
+            line_str: next.line_str,
+            line: next.line,
+            offset: next.offset,
+            length: next.length,
         }),
     };
 

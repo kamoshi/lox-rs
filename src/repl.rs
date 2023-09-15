@@ -1,20 +1,23 @@
 use std::io::{self, Write};
-use crate::{lexer, error::LoxError, parser, interpreter};
+use crate::lexer;
+use crate::parser::{self, ast};
+use crate::interpreter;
+use crate::error::LoxError;
 
 
 enum ReplMode {
-    Stmt(Vec<parser::stmt::Stmt>),
-    Expr(parser::expr::Expr),
+    Stmt(Vec<ast::Stmt>),
+    Expr(ast::Expr),
 }
 
-impl From<Vec<parser::stmt::Stmt>> for ReplMode {
-    fn from(value: Vec<parser::stmt::Stmt>) -> Self {
+impl From<Vec<ast::Stmt>> for ReplMode {
+    fn from(value: Vec<ast::Stmt>) -> Self {
         Self::Stmt(value)
     }
 }
 
-impl From<parser::expr::Expr> for ReplMode {
-    fn from(value: parser::expr::Expr) -> Self {
+impl From<ast::Expr> for ReplMode {
+    fn from(value: ast::Expr) -> Self {
         Self::Expr(value)
     }
 }

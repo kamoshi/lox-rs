@@ -16,8 +16,7 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
             };
 
             if let Some(ttype) = token {
-                let lexeme = String::from_iter(&chars[offset..offset+length]);
-                tokens.push(Token { ttype, lexeme, line, offset, length });
+                tokens.push(Token { ttype, line_str, line, offset, length });
             }
 
             offset += length;
@@ -26,7 +25,7 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
 
     tokens.push(Token {
         ttype: TokenType::Eof,
-        lexeme: String::new(),
+        line_str: "",
         line: tokens.last().map(|t| t.line + 1).unwrap_or(1),
         offset: 0,
         length: 0

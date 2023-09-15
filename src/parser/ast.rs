@@ -2,6 +2,12 @@ use std::fmt::Display;
 
 
 #[derive(Debug)]
+pub enum Stmt {
+    Expression(Box<Expr>),
+    Print(Box<Expr>),
+}
+
+#[derive(Debug)]
 pub enum Expr {
     Literal(Literal),
     Unary(OpUnary, Box<Expr>),
