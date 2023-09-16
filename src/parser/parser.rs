@@ -1,9 +1,14 @@
 use crate::lexer::{token::Token, token_type::TokenType};
-use super::ast::{Stmt, Expr, OpBinary, Literal, OpUnary};
+use super::ast::{Stmt, Expr, OpBinary, Literal, OpUnary, Ident};
 use super::error::{Error, ErrorType};
 
 
 // program      → statement* EOF ;
+//
+// declaration  → declVar
+//              | statement ;
+//
+// declVar      → "var" IDENTIFIER ( "=" expression )? ";" ;
 //
 // statement    → stmtExpr
 //              | stmtPrnt ;
@@ -19,7 +24,8 @@ use super::error::{Error, ErrorType};
 // unary        → ( "!" | "-" ) unary
 //              | primary ;
 // primary      → NUMBER | STRING | "true" | "false" | "nil"
-//              | "(" expression ")" ;
+//              | "(" expression ")"
+//              | IDENTIFIER ;
 
 pub fn parse<'src, 'a>(
     tokens: &'a [Token]
@@ -29,7 +35,7 @@ pub fn parse<'src, 'a>(
 
     while curr < tokens.len() {
         if tokens.get(curr).map(|t| t.ttype == TokenType::Eof).unwrap_or(false) { break };
-        let (consumed, stmt) = statement(&tokens[curr..])?;
+        let (consumed, stmt) = declaration(&tokens[curr..])?;
 
         statements.push(stmt);
         curr += consumed;
@@ -43,8 +49,7 @@ pub fn parse_expr<'src, 'a>(
 ) -> Result<Expr, Error<'src>> where 'a: 'src {
     let (consumed, expr) = expression(tokens)?;
     match tokens.get(consumed).map(|t| &t.ttype) {
-        Some(TokenType::Eof) => Ok(*expr),
-        None => Ok(*expr),
+        Some(TokenType::Eof) | None => Ok(*expr),
         _ => {
             let next = &tokens[consumed];
             Err(Error {
@@ -58,6 +63,53 @@ pub fn parse_expr<'src, 'a>(
     }
 }
 
+fn declaration<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+    match tokens.get(0).map(|t| &t.ttype) {
+        Some(TokenType::Var) => decl_var(tokens),
+        _ => statement(tokens),
+    }
+}
+
+fn decl_var<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+    // first token is `var`
+    const C_VAR: usize = 1;
+
+    // consumes 1 token after `var`
+    let ident = match tokens.get(C_VAR).map(|t| &t.ttype) {
+        Some(TokenType::Ident(name)) => Ident(name.to_owned()),
+        _ => {
+            let prev = &tokens[0];
+            return Err(Error {
+                ttype: ErrorType::ExpectedIdent,
+                line_str: prev.line_str,
+                line: prev.line,
+                offset: prev.offset + prev.length,
+                length: 1,
+            });
+        },
+    };
+
+    // consumes 0 or optionally 1 + n tokens
+    let (c_opt, expr) = match tokens.get(C_VAR + 1).map(|t| &t.ttype) {
+        Some(TokenType::Equal) => {
+            // get expr after equal
+            let (c_expr, expr) = expression(&tokens[C_VAR + 2..])?;
+            (1 + c_expr, Some(expr))
+        },
+        _ => (0, None),
+    };
+
+    // check semicolon
+    let at = C_VAR + 1 + c_opt;
+    let prev = &tokens[at - 1];
+    let curr = tokens.get(at);
+    consume(&prev, curr, TokenType::Semicolon, ErrorType::MissingSemicolon)
+        .map(|_| (at + 1, Stmt::Var(ident, expr)))
+}
 
 fn statement<'src, 'a>(
     tokens: &'a [Token<'src>]
@@ -179,7 +231,7 @@ fn term<'src, 'a>(
 }
 
 fn factor<'src, 'a>(
-    tokens: &'src [Token<'src>]
+    tokens: &'a [Token<'src>]
 ) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
     let (mut consumed, mut expr) = unary(tokens)?;
 
@@ -225,6 +277,7 @@ fn primary<'src, 'a>(
     use TokenType as TT;
     use Literal::*;
     let (consumed, variant) = match &next.ttype {
+        TT::Ident(name) => (1, Box::new(Expr::Variable(Ident(name.to_owned())))),
         TT::Num(num) => (1, Box::new(Expr::Literal(Num(*num)))),
         TT::Str(str) => (1, Box::new(Expr::Literal(Str(str.to_owned())))),
         TT::True     => (1, Box::new(Expr::Literal(True))),
@@ -265,4 +318,22 @@ fn matches(token: Option<&Token>, tts: &[TokenType]) -> bool {
     token
         .map(|token| tts.iter().any(|tt| *tt == token.ttype))
         .unwrap_or(false)
+}
+
+fn consume<'src, 'a>(
+    prev: &'a Token<'src>,
+    curr: Option<&'a Token>,
+    tt: TokenType,
+    et: ErrorType,
+) -> Result<(), Error<'src>> {
+    match curr.map(|t| t.ttype == tt) {
+        Some(true) => Ok(()),
+        _ => Err(Error {
+            ttype: et,
+            line_str: prev.line_str,
+            line: prev.line,
+            offset: prev.offset + prev.length,
+            length: 1,
+        }),
+    }
 }

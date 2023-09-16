@@ -1,10 +1,8 @@
-use std::fmt::Display;
-
-
 #[derive(Debug)]
 pub enum Stmt {
-    Expression(Box<Expr>),
+    Var(Ident, Option<Box<Expr>>),
     Print(Box<Expr>),
+    Expression(Box<Expr>),
 }
 
 #[derive(Debug)]
@@ -13,15 +11,7 @@ pub enum Expr {
     Unary(OpUnary, Box<Expr>),
     Binary(Box<Expr>, OpBinary, Box<Expr>),
     Grouping(Box<Expr>),
-}
-
-#[derive(Debug)]
-pub enum Literal {
-    Num(f64),
-    Str(String),
-    True,
-    False,
-    Nil,
+    Variable(Ident),
 }
 
 #[derive(Debug)]
@@ -43,64 +33,14 @@ pub enum OpBinary {
     Div,
 }
 
-
-impl Display for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use Expr::*;
-        let str = match self {
-            Grouping(expr)      => format!("({expr})"),
-            Unary(op, expr)     => format!("({op} {expr})"),
-            Binary(l, op, r)    => format!("({op} {l} {r})"),
-            Literal(literal)    => literal.to_string(),
-        };
-
-        write!(f, "{str}")
-    }
+#[derive(Debug)]
+pub enum Literal {
+    Num(f64),
+    Str(String),
+    True,
+    False,
+    Nil,
 }
 
-impl Display for Literal {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use Literal::*;
-        let str: String = match self {
-            Str(str)    => str.into(),
-            Num(num)    => num.to_string(),
-            True        => "true".into(),
-            False       => "false".into(),
-            Nil         => "nil".into(),
-        };
-
-        write!(f, "{str}")
-    }
-}
-
-impl Display for OpUnary {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use OpUnary::*;
-        let str = match self {
-            Not => "not",
-            Neg => "neg",
-        };
-
-        write!(f, "{str}")
-    }
-}
-
-impl Display for OpBinary {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use OpBinary::*;
-        let str = match self {
-            Equal           => "==",
-            NotEqual        => "!=",
-            Less            => "<",
-            LessEqual       => "<=",
-            Greater         => ">",
-            GreaterEqual    => ">=",
-            Add             => "+",
-            Sub             => "-",
-            Mul             => "*",
-            Div             => "/",
-        };
-
-        write!(f, "{str}")
-    }
-}
+#[derive(Debug)]
+pub struct Ident(pub String);

@@ -7,6 +7,7 @@ pub enum ErrorType {
     InvalidToken(TokenType),
     MissingSemicolon,
     ExprLeftover,
+    ExpectedIdent,
 }
 
 pub struct Error<'src> {
@@ -25,6 +26,7 @@ impl LoxError for Error<'_> {
             InvalidToken(token) => format!("Invalid token {token}"),
             MissingSemicolon    => "Missing semicolon after statement".into(),
             ExprLeftover        => "Invalid tokens after expression".into(),
+            ExpectedIdent       => "Expected identifier".into(),
         };
 
         let line_str = self.line_str;

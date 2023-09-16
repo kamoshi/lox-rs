@@ -47,8 +47,9 @@ pub(crate) fn exec(stmts: &[Stmt]) -> Result<(), Error> {
 
 fn exec_stmt(stmt: &Stmt) -> Result<(), Error> {
     match stmt {
-        Stmt::Expression(expr) => exec_stmt_expr(expr)?,
-        Stmt::Print(expr)      => exec_stmt_prnt(expr)?,
+        Stmt::Var(_, _)         => todo!(),
+        Stmt::Expression(expr)  => exec_stmt_expr(expr)?,
+        Stmt::Print(expr)       => exec_stmt_prnt(expr)?,
     };
     Ok(())
 }
@@ -71,6 +72,7 @@ pub(crate) fn eval_expr(expr: &Expr) -> Result<LoxType, Error> {
         Expr::Unary(op, expr)   => eval_expr_unary(op, expr),
         Expr::Binary(l, op, r)  => eval_expr_binary(l, op, r),
         Expr::Grouping(expr)    => eval_expr_grouping(expr),
+        Expr::Variable(_) => todo!(),
     }
 }
 
