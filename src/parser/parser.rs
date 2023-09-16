@@ -16,7 +16,9 @@ use super::error::{Error, ErrorType};
 // stmtExpr     → expression ";" ;
 // stmtPrnt     → "print" expression ";" ;
 //
-// expression   → equality ;
+// expression   → assignment ;
+// assignment   → IDENTIFIER "=" assignment
+//              | equality ;
 // equality     → comparison ( ( "!=" | "==" ) comparison )* ;
 // comparison   → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term         → factor ( ( "-" | "+" ) factor )* ;
@@ -163,7 +165,34 @@ fn stmt_prnt<'src, 'a>(
 fn expression<'src, 'a>(
     tokens: &'a [Token<'src>]
 ) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
-    equality(tokens)
+    assignment(tokens)
+}
+
+fn assignment<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+    let (c_expr, expr) = equality(tokens)?;
+
+    match tokens.get(c_expr).map(|t| &t.ttype) {
+        Some(TokenType::Equal) => {
+            let (c_next, next) = assignment(&tokens[c_expr + 1..])?;
+
+            match *expr {
+                Expr::Variable(ident) => Ok((c_expr + 1 + c_next, Box::new(Expr::Assign(ident, next)))),
+                _ => {
+                    let equals = &tokens[c_expr];
+                    Err(Error {
+                        ttype: ErrorType::AssignmentTarget,
+                        line_str: equals.line_str,
+                        line: equals.line,
+                        offset: equals.offset,
+                        length: equals.length,
+                    })
+                },
+            }
+        },
+        _ => Ok((c_expr, expr)),
+    }
 }
 
 fn equality<'src, 'a>(

@@ -8,6 +8,7 @@ pub enum Stmt {
 #[derive(Debug)]
 pub enum Expr {
     Literal(Literal),
+    Assign(Ident, Box<Expr>),
     Unary(OpUnary, Box<Expr>),
     Binary(Box<Expr>, OpBinary, Box<Expr>),
     Grouping(Box<Expr>),

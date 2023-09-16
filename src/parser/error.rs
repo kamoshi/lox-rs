@@ -8,6 +8,7 @@ pub enum ErrorType {
     MissingSemicolon,
     ExprLeftover,
     ExpectedIdent,
+    AssignmentTarget,
 }
 
 pub struct Error<'src> {
@@ -27,6 +28,7 @@ impl LoxError for Error<'_> {
             MissingSemicolon    => "Missing semicolon after statement".into(),
             ExprLeftover        => "Invalid tokens after expression".into(),
             ExpectedIdent       => "Expected identifier".into(),
+            AssignmentTarget    => "Invalid assignment target".into(),
         };
 
         let line_str = self.line_str;
