@@ -5,6 +5,7 @@ pub enum Stmt {
     Print(Box<Expr>),
     Expression(Box<Expr>),
     If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
+    While(Box<Expr>, Box<Stmt>),
 }
 
 #[derive(Debug)]

@@ -1,5 +1,4 @@
 use crate::parser::ast::{Stmt, Expr, Literal, OpUnary, OpBinary, Ident, OpLogic};
-
 use super::types::LoxType;
 use super::env::{Env, EnvRef};
 use super::error::ErrorType;
@@ -25,6 +24,14 @@ fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
         Stmt::Expression(expr)  => exec_stmt_expr(env, expr)?,
         Stmt::Print(expr)       => exec_stmt_prnt(env, expr)?,
         Stmt::Block(stmts)      => exec(Some(Env::wrap(env)), stmts)?,
+        Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
+    };
+    Ok(())
+}
+
+fn exec_stmt_while(env: EnvRef, cond: &Expr, stmt: &Stmt) -> Result<(), ErrorType> {
+    while eval_expr(env.clone(), cond)?.is_truthy() {
+        exec_stmt(env.clone(), stmt)?;
     };
     Ok(())
 }
@@ -79,16 +86,10 @@ fn eval_expr_logic(env: EnvRef, l: &Expr, op: &OpLogic, r: &Expr) -> Result<LoxT
     let l = eval_expr(env.clone(), l)?;
 
     match (l.is_truthy(), op) {
-        (true, OpLogic::Or)     => Ok(LoxType::Boolean(true)),
-        (false, OpLogic::And)   => Ok(LoxType::Boolean(false)),
-        (true, OpLogic::And)    => {
-            let r = eval_expr(env.clone(), r)?;
-            Ok(LoxType::Boolean(r.is_truthy()))
-        },
-        (false, OpLogic::Or)    => {
-            let r = eval_expr(env.clone(), r)?;
-            Ok(LoxType::Boolean(r.is_truthy()))
-        },
+        (true, OpLogic::Or)     => Ok(l),
+        (false, OpLogic::Or)    => Ok(eval_expr(env, r)?),
+        (true, OpLogic::And)    => Ok(eval_expr(env, r)?),
+        (false, OpLogic::And)   => Ok(l),
     }
 }
 

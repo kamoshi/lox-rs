@@ -12,11 +12,13 @@ use super::error::{Error, ErrorType};
 //
 // statement    → block
 //              | stmtIf
+//              | stmtWhile
 //              | stmtPrnt
 //              | stmtExpr ;
 //
 // block        → "{" declaration* "}" ;
 // stmtIf       → "if" "(" expression ")" statement ( "else" statement )? ;
+// stmtWhile    → "while" "(" expression ")" statement;
 // stmtPrnt     → "print" expression ";" ;
 // stmtExpr     → expression ";" ;
 //
@@ -126,6 +128,7 @@ fn statement<'src, 'a>(
     match tokens.get(0).map(|t| &t.ttype) {
         Some(TokenType::BraceL) => block(tokens),
         Some(TokenType::If)     => stmt_if(tokens),
+        Some(TokenType::While)  => stmt_while(tokens),
         Some(TokenType::Print)  => stmt_prnt(&tokens[1..]),
         _ => stmt_expr(tokens),
     }
@@ -154,7 +157,7 @@ fn stmt_if<'src, 'a>(
     tokens: &'a [Token<'src>]
 ) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
     let mut ptr = 1;    // 1 = if
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::IfMissingParenL)?;
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::MissingParenL)?;
     ptr += 1;           // 1 = (
     let (n, cond) = expression(&tokens[ptr..])?;
     ptr += n;           // n = expr
@@ -169,12 +172,28 @@ fn stmt_if<'src, 'a>(
             ptr += 1;   // 1 =? else
             let (n, branch_f) = statement(&tokens[ptr..])?;
             ptr += n;   // n =? false branch
-            Some(Box::new(branch_f))
+            Some(branch_f.into())
         },
         false => None,
     };
 
-    Ok((ptr, Stmt::If(cond, Box::new(branch_t), branch_f)))
+    Ok((ptr, Stmt::If(cond, branch_t.into(), branch_f)))
+}
+
+fn stmt_while<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+    let mut ptr = 1;    // 1 = while
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::MissingParenL)?;
+    ptr += 1;           // 1 = (
+    let (n, cond) = expression(&tokens[ptr..])?;
+    ptr += n;           // n = expr
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+    ptr += 1;           // 1 = )
+    let (n, body) = statement(&tokens[ptr..])?;
+    ptr += n;           // n = expr
+
+    Ok((ptr, Stmt::While(cond, body.into())))
 }
 
 fn stmt_expr<'src, 'a>(
