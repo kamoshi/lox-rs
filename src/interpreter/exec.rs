@@ -66,7 +66,7 @@ fn exec_stmt_expr(env: EnvRef, expr: &Expr) -> Result<(), ErrorType> {
 
 fn exec_stmt_prnt(env: EnvRef, expr: &Expr) -> Result<(), ErrorType> {
     let res = eval_expr(env, expr)?;
-    print!("{res}");
+    println!("{res}");
     Ok(())
 }
 
