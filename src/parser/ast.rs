@@ -1,5 +1,6 @@
 #[derive(Debug)]
 pub enum Stmt {
+    Block(Vec<Stmt>),
     Var(Ident, Option<Box<Expr>>),
     Print(Box<Expr>),
     Expression(Box<Expr>),

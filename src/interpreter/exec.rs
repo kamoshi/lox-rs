@@ -1,48 +1,75 @@
-use crate::parser::ast::{Stmt, Expr, Literal, OpUnary, OpBinary};
+use crate::parser::ast::{Stmt, Expr, Literal, OpUnary, OpBinary, Ident};
 
 use super::types::LoxType;
-use super::env::Env;
+use super::env::{Env, EnvRef};
 use super::error::ErrorType;
 
 
-pub fn exec(stmts: &[Stmt]) -> Result<(), ErrorType> {
-    let mut env = Env::new();
+pub fn exec(g_env: Option<EnvRef>, stmts: &[Stmt]) -> Result<(), ErrorType> {
+    let env = match g_env {
+        Some(env) => env,
+        None => Env::new_ref(),
+    };
+
     for stmt in stmts {
-        exec_stmt(stmt)?;
+        exec_stmt(env.clone(), stmt)?;
     };
+
     Ok(())
 }
 
-fn exec_stmt(stmt: &Stmt) -> Result<(), ErrorType> {
+fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
     match stmt {
-        Stmt::Var(_, _)         => todo!(),
-        Stmt::Expression(expr)  => exec_stmt_expr(expr)?,
-        Stmt::Print(expr)       => exec_stmt_prnt(expr)?,
+        Stmt::Var(ident, expr)  => exec_stmt_var(env, ident, expr)?,
+        Stmt::Expression(expr)  => exec_stmt_expr(env, expr)?,
+        Stmt::Print(expr)       => exec_stmt_prnt(env, expr)?,
+        Stmt::Block(stmts)      => exec(Some(Env::wrap(env)), stmts)?,
     };
     Ok(())
 }
 
-fn exec_stmt_expr(expr: &Expr) -> Result<(), ErrorType> {
-    eval_expr(expr)?;
+fn exec_stmt_var(env: EnvRef, ident: &Ident, expr: &Option<Box<Expr>>) -> Result<(), ErrorType> {
+    let value = match expr {
+        Some(expr)  => eval_expr(env.clone(), expr)?,
+        None        => LoxType::Nil,
+    };
+
+    env.borrow_mut().define(&ident.0, &value);
+
     Ok(())
 }
 
-fn exec_stmt_prnt(expr: &Expr) -> Result<(), ErrorType> {
-    let res = eval_expr(expr)?;
+fn exec_stmt_expr(env: EnvRef, expr: &Expr) -> Result<(), ErrorType> {
+    eval_expr(env, expr)?;
+    Ok(())
+}
+
+fn exec_stmt_prnt(env: EnvRef, expr: &Expr) -> Result<(), ErrorType> {
+    let res = eval_expr(env, expr)?;
     print!("{res}");
     Ok(())
 }
 
-
-pub fn eval_expr(expr: &Expr) -> Result<LoxType, ErrorType> {
+pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
     match expr {
-        Expr::Literal(literal)  => Ok(eval_expr_literal(literal)),
-        Expr::Unary(op, expr)   => eval_expr_unary(op, expr),
-        Expr::Binary(l, op, r)  => eval_expr_binary(l, op, r),
-        Expr::Grouping(expr)    => eval_expr_grouping(expr),
-        Expr::Variable(_) => todo!(),
-        Expr::Assign(_, _) => todo!(),
+        Expr::Literal(literal)      => Ok(eval_expr_literal(literal)),
+        Expr::Unary(op, expr)       => eval_expr_unary(env, op, expr),
+        Expr::Binary(l, op, r)      => eval_expr_binary(env, l, op, r),
+        Expr::Grouping(expr)        => eval_expr_grouping(env, expr),
+        Expr::Variable(ident)       => eval_expr_variable(env, ident),
+        Expr::Assign(ident, expr)   => eval_expr_assign(env, ident, expr),
     }
+}
+
+fn eval_expr_variable(env: EnvRef, ident: &Ident) -> Result<LoxType, ErrorType> {
+    env.borrow().get(&ident.0)
+}
+
+fn eval_expr_assign(env: EnvRef, ident: &Ident, expr: &Expr) -> Result<LoxType, ErrorType> {
+    let value = eval_expr(env.clone(), expr)?;
+
+    env.borrow_mut().set(&ident.0, &value)?;
+    Ok(value)
 }
 
 fn eval_expr_literal(literal: &Literal) -> LoxType {
@@ -56,8 +83,8 @@ fn eval_expr_literal(literal: &Literal) -> LoxType {
     }
 }
 
-fn eval_expr_unary(op: &OpUnary, expr: &Box<Expr>) -> Result<LoxType, ErrorType> {
-    let value = eval_expr(expr)?;
+fn eval_expr_unary(env: EnvRef, op: &OpUnary, expr: &Box<Expr>) -> Result<LoxType, ErrorType> {
+    let value = eval_expr(env, expr)?;
 
     use LoxType::*;
     match op {
@@ -76,9 +103,9 @@ fn eval_expr_unary(op: &OpUnary, expr: &Box<Expr>) -> Result<LoxType, ErrorType>
     }
 }
 
-fn eval_expr_binary(l: &Box<Expr>, op: &OpBinary, r: &Box<Expr>) -> Result<LoxType, ErrorType> {
-    let l = eval_expr(l)?;
-    let r = eval_expr(r)?;
+fn eval_expr_binary(env: EnvRef, l: &Box<Expr>, op: &OpBinary, r: &Box<Expr>) -> Result<LoxType, ErrorType> {
+    let l = eval_expr(env.clone(), l)?;
+    let r = eval_expr(env.clone(), r)?;
 
     use OpBinary::*;
     use LoxType::*;
@@ -127,6 +154,6 @@ fn eval_expr_binary(l: &Box<Expr>, op: &OpBinary, r: &Box<Expr>) -> Result<LoxTy
     }
 }
 
-fn eval_expr_grouping(expr: &Box<Expr>) -> Result<LoxType, ErrorType> {
-    eval_expr(expr)
+fn eval_expr_grouping(env: EnvRef, expr: &Box<Expr>) -> Result<LoxType, ErrorType> {
+    eval_expr(env, expr)
 }

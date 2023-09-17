@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 use crate::lexer;
 use crate::parser::{self, ast};
-use crate::interpreter;
+use crate::interpreter::{self, env::{Env, EnvRef}};
 use crate::error::LoxError;
 
 
@@ -24,6 +24,7 @@ impl From<ast::Expr> for ReplMode {
 
 pub(crate) fn run_repl() {
     let mut buffer = String::new();
+    let env = Env::new_ref();
 
     loop {
         buffer.clear();
@@ -33,7 +34,7 @@ pub(crate) fn run_repl() {
             Ok(_) => &buffer,
         };
 
-        eval(&read);
+        eval(env.clone(), &read);
         println!("");
     }
 }
@@ -45,7 +46,7 @@ fn read(buffer: &mut String) -> Result<usize, io::Error> {
     io::stdin().read_line(buffer)
 }
 
-fn eval(source: &str) {
+fn eval(env: EnvRef, source: &str) {
     // First try parsing expressions and then try statements
     let tokens = match lexer::tokenize(source) {
         Ok(tokens) => tokens,
@@ -61,8 +62,8 @@ fn eval(source: &str) {
     };
 
     let result = match ast {
-        ReplMode::Stmt(stmt) => interpreter::exec(&stmt),
-        ReplMode::Expr(expr) => interpreter::eval_expr(&expr).map(|res| print!("{res}")),
+        ReplMode::Stmt(stmt) => interpreter::exec(Some(env), &stmt),
+        ReplMode::Expr(expr) => interpreter::eval_expr(env, &expr).map(|res| print!("{res}")),
     };
 
     match result {

@@ -9,6 +9,7 @@ pub enum ErrorType {
     ExprLeftover,
     ExpectedIdent,
     AssignmentTarget,
+    MissingBrace,
 }
 
 pub struct Error<'src> {
@@ -29,6 +30,7 @@ impl LoxError for Error<'_> {
             ExprLeftover        => "Invalid tokens after expression".into(),
             ExpectedIdent       => "Expected identifier".into(),
             AssignmentTarget    => "Invalid assignment target".into(),
+            MissingBrace        => "Missing brace after block".into(),
         };
 
         let line_str = self.line_str;

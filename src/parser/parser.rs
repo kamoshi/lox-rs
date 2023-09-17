@@ -10,9 +10,11 @@ use super::error::{Error, ErrorType};
 //
 // declVar      → "var" IDENTIFIER ( "=" expression )? ";" ;
 //
-// statement    → stmtExpr
-//              | stmtPrnt ;
+// statement    → block
+//              | stmtPrnt
+//              | stmtExpr ;
 //
+// block        → "{" declaration* "}" ;
 // stmtExpr     → expression ";" ;
 // stmtPrnt     → "print" expression ";" ;
 //
@@ -109,17 +111,38 @@ fn decl_var<'src, 'a>(
     let at = C_VAR + 1 + c_opt;
     let prev = &tokens[at - 1];
     let curr = tokens.get(at);
-    consume(&prev, curr, TokenType::Semicolon, ErrorType::MissingSemicolon)
-        .map(|_| (at + 1, Stmt::Var(ident, expr)))
+    consume(&prev, curr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+
+    Ok((at + 1, Stmt::Var(ident, expr)))
 }
 
 fn statement<'src, 'a>(
     tokens: &'a [Token<'src>]
 ) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
     match tokens.get(0).map(|t| &t.ttype) {
-        Some(TokenType::Print) => stmt_prnt(&tokens[1..]),
+        Some(TokenType::BraceL) => block(&tokens),
+        Some(TokenType::Print)  => stmt_prnt(&tokens[1..]),
         _ => stmt_expr(tokens),
     }
+}
+
+fn block<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+    let mut statements = Vec::new();
+    let mut ptr = 1;
+
+    while ptr < tokens.len() && !matches(tokens.get(ptr), &[TokenType::BraceR]) {
+        let (c, stmt) = declaration(&tokens[ptr..])?;
+
+        statements.push(stmt);
+        ptr += c;
+    }
+
+    // check closing brace
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::BraceR, ErrorType::MissingBrace)?;
+
+    Ok((ptr + 1, Stmt::Block(statements)))
 }
 
 fn stmt_expr<'src, 'a>(

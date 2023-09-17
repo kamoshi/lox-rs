@@ -41,7 +41,7 @@ fn run(source: &str) {
         Err(error) => return error.report(),
     };
 
-    match interpreter::exec(&ast) {
+    match interpreter::exec(None, &ast) {
         Ok(_) => (),
         Err(err) => err.report(),
     }

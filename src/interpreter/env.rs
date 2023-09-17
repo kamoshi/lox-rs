@@ -6,20 +6,24 @@ use super::error::ErrorType;
 use super::types::LoxType;
 
 
-type Closure = Rc<RefCell<Env>>;
+pub type EnvRef = Rc<RefCell<Env>>;
 
 pub struct Env {
     inner: HashMap<String, LoxType>,
-    outer: Option<Closure>,
+    outer: Option<EnvRef>,
 }
 
 impl Env {
-    pub fn new() -> Self {
+    pub fn new() -> Env {
         Self { inner: HashMap::new(), outer: None }
     }
 
-    pub fn enclose(env: Closure) -> Self {
-        Self { inner: HashMap::new(), outer: Some(env) }
+    pub fn new_ref() -> EnvRef {
+        Rc::new(RefCell::new(Self::new()))
+    }
+
+    pub fn wrap(env: EnvRef) -> EnvRef {
+        Rc::new(RefCell::new(Self { inner: HashMap::new(), outer: Some(env) }))
     }
 
     pub fn define(&mut self, k: &str, v: &LoxType) {
@@ -27,9 +31,21 @@ impl Env {
     }
 
     pub fn get(&self, k: &str) -> Result<LoxType, ErrorType> {
-        match self.inner.get(k) {
-            Some(v) => Ok(v.clone()),
-            None => Err(ErrorType::EnvNilAccess),
+        match (self.inner.get(k), &self.outer) {
+            (Some(v), _)        => Ok(v.clone()),
+            (None, Some(outer)) => outer.borrow().get(k),
+            (None, None)        => Err(ErrorType::EnvNilAccess),
+        }
+    }
+
+    pub fn set(&mut self, k: &str, v: &LoxType) -> Result<LoxType, ErrorType> {
+        match (self.inner.contains_key(k), &self.outer) {
+            (true, _)               => {
+                self.inner.insert(k.into(), v.clone());
+                Ok(v.clone())
+            },
+            (false, Some(outer))    => outer.borrow_mut().set(k, v),
+            (false, None)           => Err(ErrorType::UndefinedAssign),
         }
     }
 }
