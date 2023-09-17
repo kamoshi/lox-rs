@@ -15,6 +15,12 @@ pub enum Expr {
     Binary(Box<Expr>, OpBinary, Box<Expr>),
     Grouping(Box<Expr>),
     Variable(Ident),
+    Logic(Box<Expr>, OpLogic, Box<Expr>),
+}
+
+#[derive(Debug)]
+pub enum OpLogic {
+    And, Or
 }
 
 #[derive(Debug)]

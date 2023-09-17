@@ -1,5 +1,5 @@
 use crate::lexer::{token::Token, token_type::TokenType};
-use super::ast::{Stmt, Expr, OpBinary, Literal, OpUnary, Ident};
+use super::ast::{Stmt, Expr, OpBinary, Literal, OpUnary, Ident, OpLogic};
 use super::error::{Error, ErrorType};
 
 
@@ -22,7 +22,9 @@ use super::error::{Error, ErrorType};
 //
 // expression   → assignment ;
 // assignment   → IDENTIFIER "=" assignment
-//              | equality ;
+//              | logicOr ;
+// logicOr      → logicAnd ( "or" logicAnd )* ;
+// logicAnd     → equality ( "and" equality )* ;
 // equality     → comparison ( ( "!=" | "==" ) comparison )* ;
 // comparison   → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 // term         → factor ( ( "-" | "+" ) factor )* ;
@@ -166,7 +168,7 @@ fn stmt_if<'src, 'a>(
         true => {
             ptr += 1;   // 1 =? else
             let (n, branch_f) = statement(&tokens[ptr..])?;
-            ptr += n;   // n =? optional false branch
+            ptr += n;   // n =? false branch
             Some(Box::new(branch_f))
         },
         false => None,
@@ -224,7 +226,7 @@ fn expression<'src, 'a>(
 fn assignment<'src, 'a>(
     tokens: &'a [Token<'src>]
 ) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
-    let (c_expr, expr) = equality(tokens)?;
+    let (c_expr, expr) = or(tokens)?;
 
     match tokens.get(c_expr).map(|t| &t.ttype) {
         Some(TokenType::Equal) => {
@@ -246,6 +248,40 @@ fn assignment<'src, 'a>(
         },
         _ => Ok((c_expr, expr)),
     }
+}
+
+fn or<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+    let mut ptr = 0;
+    let (n, mut expr) = and(tokens)?;
+    ptr += n;       // n = expr
+
+    while matches(tokens.get(ptr), &[TokenType::Or]) {
+        ptr += 1;   // 1 =* or
+        let (n, r) = and(&tokens[ptr..])?;
+        ptr += n;   // n =* expr
+        expr = Box::new(Expr::Logic(expr, OpLogic::Or, r));
+    };
+
+    Ok((ptr, expr))
+}
+
+fn and<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+    let mut ptr = 0;
+    let (n, mut expr) = equality(tokens)?;
+    ptr += n;       // n = expr
+
+    while matches(tokens.get(ptr), &[TokenType::And]) {
+        ptr += 1;   // 1 =* and
+        let (n, r) = equality(&tokens[ptr..])?;
+        ptr += n;   // n =* expr
+        expr = Box::new(Expr::Logic(expr, OpLogic::And, r));
+    };
+
+    Ok((ptr, expr))
 }
 
 fn equality<'src, 'a>(

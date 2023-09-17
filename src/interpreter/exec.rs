@@ -1,4 +1,4 @@
-use crate::parser::ast::{Stmt, Expr, Literal, OpUnary, OpBinary, Ident};
+use crate::parser::ast::{Stmt, Expr, Literal, OpUnary, OpBinary, Ident, OpLogic};
 
 use super::types::LoxType;
 use super::env::{Env, EnvRef};
@@ -71,6 +71,24 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Grouping(expr)        => eval_expr_grouping(env, expr),
         Expr::Variable(ident)       => eval_expr_variable(env, ident),
         Expr::Assign(ident, expr)   => eval_expr_assign(env, ident, expr),
+        Expr::Logic(l, op, r)       => eval_expr_logic(env, l, op, r),
+    }
+}
+
+fn eval_expr_logic(env: EnvRef, l: &Expr, op: &OpLogic, r: &Expr) -> Result<LoxType, ErrorType> {
+    let l = eval_expr(env.clone(), l)?;
+
+    match (l.is_truthy(), op) {
+        (true, OpLogic::Or)     => Ok(LoxType::Boolean(true)),
+        (false, OpLogic::And)   => Ok(LoxType::Boolean(false)),
+        (true, OpLogic::And)    => {
+            let r = eval_expr(env.clone(), r)?;
+            Ok(LoxType::Boolean(r.is_truthy()))
+        },
+        (false, OpLogic::Or)    => {
+            let r = eval_expr(env.clone(), r)?;
+            Ok(LoxType::Boolean(r.is_truthy()))
+        },
     }
 }
 

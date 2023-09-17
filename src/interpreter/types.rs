@@ -20,3 +20,18 @@ impl Display for LoxType {
         }
     }
 }
+
+impl LoxType {
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            LoxType::Nil        => false,
+            LoxType::Boolean(b) => *b,
+            LoxType::Number(_)  => false,
+            LoxType::String(_)  => false,
+        }
+    }
+
+    //pub fn is_falsy(&self) -> bool {
+    //    !self.is_truthy()
+    //}
+}
