@@ -11,12 +11,14 @@ use super::error::{Error, ErrorType};
 // declVar      → "var" IDENTIFIER ( "=" expression )? ";" ;
 //
 // statement    → block
+//              | stmtIf
 //              | stmtPrnt
 //              | stmtExpr ;
 //
 // block        → "{" declaration* "}" ;
-// stmtExpr     → expression ";" ;
+// stmtIf       → "if" "(" expression ")" statement ( "else" statement )? ;
 // stmtPrnt     → "print" expression ";" ;
+// stmtExpr     → expression ";" ;
 //
 // expression   → assignment ;
 // assignment   → IDENTIFIER "=" assignment
@@ -120,7 +122,8 @@ fn statement<'src, 'a>(
     tokens: &'a [Token<'src>]
 ) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
     match tokens.get(0).map(|t| &t.ttype) {
-        Some(TokenType::BraceL) => block(&tokens),
+        Some(TokenType::BraceL) => block(tokens),
+        Some(TokenType::If)     => stmt_if(tokens),
         Some(TokenType::Print)  => stmt_prnt(&tokens[1..]),
         _ => stmt_expr(tokens),
     }
@@ -132,7 +135,7 @@ fn block<'src, 'a>(
     let mut statements = Vec::new();
     let mut ptr = 1;
 
-    while ptr < tokens.len() && !matches(tokens.get(ptr), &[TokenType::BraceR]) {
+    while ptr < tokens.len() && !matches(tokens.get(ptr), &[TokenType::BraceR, TokenType::Eof]) {
         let (c, stmt) = declaration(&tokens[ptr..])?;
 
         statements.push(stmt);
@@ -143,6 +146,33 @@ fn block<'src, 'a>(
     consume(&tokens[ptr-1], tokens.get(ptr), TokenType::BraceR, ErrorType::MissingBrace)?;
 
     Ok((ptr + 1, Stmt::Block(statements)))
+}
+
+fn stmt_if<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+    let mut ptr = 1;    // 1 = if
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::IfMissingParenL)?;
+    ptr += 1;           // 1 = (
+    let (n, cond) = expression(&tokens[ptr..])?;
+    ptr += n;           // n = expr
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+    ptr += 1;           // 1 = )
+
+    let (n, branch_t) = statement(&tokens[ptr..])?;
+    ptr += n;           // n = true branch
+
+    let branch_f = match matches(tokens.get(ptr), &[TokenType::Else]) {
+        true => {
+            ptr += 1;   // 1 =? else
+            let (n, branch_f) = statement(&tokens[ptr..])?;
+            ptr += n;   // n =? optional false branch
+            Some(Box::new(branch_f))
+        },
+        false => None,
+    };
+
+    Ok((ptr, Stmt::If(cond, Box::new(branch_t), branch_f)))
 }
 
 fn stmt_expr<'src, 'a>(
@@ -343,7 +373,7 @@ fn primary<'src, 'a>(
                 _ => {
                     let last = &tokens[consumed];
                     return Err(Error {
-                        ttype: ErrorType::MissingRightParen,
+                        ttype: ErrorType::MissingParenR,
                         line_str: last.line_str,
                         line: last.line,
                         offset: last.offset + last.length,

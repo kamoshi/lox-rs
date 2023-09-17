@@ -1,15 +1,17 @@
+use std::borrow::Cow;
 use crate::lexer::token_type::TokenType;
 use crate::error::LoxError;
 
 
 pub enum ErrorType {
-    MissingRightParen,
+    MissingParenR,
     InvalidToken(TokenType),
     MissingSemicolon,
     ExprLeftover,
     ExpectedIdent,
     AssignmentTarget,
     MissingBrace,
+    IfMissingParenL,
 }
 
 pub struct Error<'src> {
@@ -23,14 +25,15 @@ pub struct Error<'src> {
 impl LoxError for Error<'_> {
     fn report(&self) {
         use ErrorType::*;
-        let message = match &self.ttype {
-            MissingRightParen   => "Missing right parenthesis".into(),
-            InvalidToken(token) => format!("Invalid token {token}"),
+        let message: Cow<str> = match &self.ttype {
+            MissingParenR       => "Missing right parenthesis".into(),
+            InvalidToken(token) => format!("Invalid token {token}").into(),
             MissingSemicolon    => "Missing semicolon after statement".into(),
             ExprLeftover        => "Invalid tokens after expression".into(),
             ExpectedIdent       => "Expected identifier".into(),
             AssignmentTarget    => "Invalid assignment target".into(),
             MissingBrace        => "Missing brace after block".into(),
+            IfMissingParenL     => "Left parenthesis is expected after if".into(),
         };
 
         let line_str = self.line_str;

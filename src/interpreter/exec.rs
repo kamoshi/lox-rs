@@ -20,12 +20,25 @@ pub fn exec(g_env: Option<EnvRef>, stmts: &[Stmt]) -> Result<(), ErrorType> {
 
 fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
     match stmt {
+        Stmt::If(cond, t, f)    => exec_stmt_if(env, cond, t, f)?,
         Stmt::Var(ident, expr)  => exec_stmt_var(env, ident, expr)?,
         Stmt::Expression(expr)  => exec_stmt_expr(env, expr)?,
         Stmt::Print(expr)       => exec_stmt_prnt(env, expr)?,
         Stmt::Block(stmts)      => exec(Some(Env::wrap(env)), stmts)?,
     };
     Ok(())
+}
+
+fn exec_stmt_if(env: EnvRef, cond: &Expr, t: &Stmt, f: &Option<Box<Stmt>>) -> Result<(), ErrorType> {
+    let cond = eval_expr(env.clone(), cond)?;
+
+    use LoxType::*;
+    match (cond, f) {
+        (Boolean(true), _)  => exec_stmt(env, t),
+        (_, Some(stmt))     => exec_stmt(env, &stmt),
+        _                   => Ok(()),
+    }
+
 }
 
 fn exec_stmt_var(env: EnvRef, ident: &Ident, expr: &Option<Box<Expr>>) -> Result<(), ErrorType> {
