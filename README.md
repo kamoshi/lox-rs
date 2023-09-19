@@ -11,11 +11,14 @@ Another Rust implementation of the Lox programming language
 ### Features
 - [x] repl
   - [x] expressions
-  - [x] statements   
+  - [x] statements
 - [x] print
 - [x] variables
 - [x] scope
-- [ ] conditionals
-- [ ] logic
-- [ ] while
-- [ ] for
+- [x] conditionals
+- [x] logic
+- [x] while
+- [x] for
+- [ ] functions
+  - [ ] closures
+  - [ ] lambdas
