@@ -136,7 +136,7 @@ fn statement<'src, 'a>(
         Some(TokenType::If)     => stmt_if(tokens),
         Some(TokenType::While)  => stmt_while(tokens),
         Some(TokenType::For)    => stmt_for(tokens),
-        Some(TokenType::Print)  => stmt_prnt(&tokens[1..]),
+        // Some(TokenType::Print)  => stmt_prnt(&tokens[1..]),
         _ => stmt_expr(tokens),
     }
 }

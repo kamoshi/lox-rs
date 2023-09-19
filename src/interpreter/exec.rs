@@ -85,9 +85,14 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
 
 fn eval_expr_call(env: EnvRef, callee: &Expr, args: &[Expr]) -> Result<LoxType, ErrorType> {
     let callee = eval_expr(env.clone(), callee)?;
-    let args = args.iter().map(|a| eval_expr(env.clone(), a));
+    let args: Vec<_> = args.iter()
+        .map(|a| eval_expr(env.clone(), a))
+        .collect::<Result<_, ErrorType>>()?;
 
-    todo!()
+    match callee {
+        LoxType::Callable(c) => c.call(env, &args),
+        _ => Err(ErrorType::TypeMismatch("Can't call this value"))
+    }
 }
 
 fn eval_expr_logic(env: EnvRef, l: &Expr, op: &OpLogic, r: &Expr) -> Result<LoxType, ErrorType> {

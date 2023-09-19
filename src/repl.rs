@@ -25,6 +25,7 @@ impl From<ast::Expr> for ReplMode {
 pub(crate) fn run_repl() {
     let mut buffer = String::new();
     let env = Env::new_ref();
+    interpreter::native::populate(env.clone());
 
     loop {
         buffer.clear();

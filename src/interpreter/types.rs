@@ -1,13 +1,14 @@
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
+use super::{env::EnvRef, error::ErrorType};
 
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub enum LoxType {
     Nil,
     Boolean(bool),
     Number(f64),
     String(String),
-    Callable(LoxCallable),
+    Callable(Rc<dyn LoxCallable>),
 }
 
 
@@ -19,7 +20,20 @@ impl Display for LoxType {
             Boolean(b)  => write!(f, "{b}"),
             Number(n)   => write!(f, "{n}"),
             String(s)   => write!(f, "{s}"),
-            Callable(c) => write!(f, "TODO"),
+            Callable(c) => write!(f, "{c}"),
+        }
+    }
+}
+
+impl PartialEq for LoxType {
+    fn eq(&self, other: &Self) -> bool {
+        use core::mem::discriminant;
+        match (self, other) {
+            (Self::Boolean(l), Self::Boolean(r))    => l == r,
+            (Self::Number(l), Self::Number(r))      => l == r,
+            (Self::String(l), Self::String(r))      => l == r,
+            (Self::Callable(l), Self::Callable(r))  => Rc::ptr_eq(l, r),
+            _ => discriminant(self) == discriminant(other),
         }
     }
 }
@@ -34,16 +48,9 @@ impl LoxType {
             LoxType::Callable(_)    => true,
         }
     }
-
-    //pub fn is_falsy(&self) -> bool {
-    //    !self.is_truthy()
-    //}
 }
 
 
-
-#[derive(Clone, PartialEq)]
-pub struct LoxCallable {
-    // call: Box<dyn Fn(Vec<LoxType>) -> LoxType>,
-    // TODO
+pub trait LoxCallable: Display {
+    fn call(&self, env: EnvRef, args: &[LoxType]) -> Result<LoxType, ErrorType>;
 }
