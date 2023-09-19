@@ -79,7 +79,15 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Variable(ident)       => eval_expr_variable(env, ident),
         Expr::Assign(ident, expr)   => eval_expr_assign(env, ident, expr),
         Expr::Logic(l, op, r)       => eval_expr_logic(env, l, op, r),
+        Expr::Call(callee, args)    => eval_expr_call(env, callee, args),
     }
+}
+
+fn eval_expr_call(env: EnvRef, callee: &Expr, args: &[Expr]) -> Result<LoxType, ErrorType> {
+    let callee = eval_expr(env.clone(), callee)?;
+    let args = args.iter().map(|a| eval_expr(env.clone(), a));
+
+    todo!()
 }
 
 fn eval_expr_logic(env: EnvRef, l: &Expr, op: &OpLogic, r: &Expr) -> Result<LoxType, ErrorType> {
@@ -120,17 +128,13 @@ fn eval_expr_unary(env: EnvRef, op: &OpUnary, expr: &Box<Expr>) -> Result<LoxTyp
 
     use LoxType::*;
     match op {
-        OpUnary::Not => match value {
-            Nil         => Ok(Boolean(true)),
-            Boolean(b)  => Ok(Boolean(!b)),
-            Number(_)   => Ok(Boolean(false)),
-            String(_)   => Ok(Boolean(false)),
-        },
+        OpUnary::Not => Ok(LoxType::Boolean(!value.is_truthy())),
         OpUnary::Neg => match value {
             Nil         => Err(ErrorType::TypeMismatch("Can't negate a nil value")),
             Boolean(_)  => Err(ErrorType::TypeMismatch("Can't negate a boolean value")),
             Number(f)   => Ok(Number(-f)),
             String(_)   => Err(ErrorType::TypeMismatch("Can't negate a string value")),
+            Callable(_) => Err(ErrorType::TypeMismatch("Can't negate a function value")),
         },
     }
 }

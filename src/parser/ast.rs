@@ -17,6 +17,7 @@ pub enum Expr {
     Grouping(Box<Expr>),
     Variable(Ident),
     Logic(Box<Expr>, OpLogic, Box<Expr>),
+    Call(Box<Expr>, Vec<Expr>),
 }
 
 #[derive(Debug)]

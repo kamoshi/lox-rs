@@ -34,10 +34,14 @@ use super::error::{Error, ErrorType};
 // term         → factor ( ( "-" | "+" ) factor )* ;
 // factor       → unary ( ( "/" | "*" ) unary )* ;
 // unary        → ( "!" | "-" ) unary
-//              | primary ;
+//              | call ;
+// call         → primary ( "(" arguments? ")" )* ;
 // primary      → NUMBER | STRING | "true" | "false" | "nil"
 //              | "(" expression ")"
 //              | IDENTIFIER ;
+//
+// arguments    → expression ( "," expression )* ;
+
 
 pub fn parse<'src, 'a>(
     tokens: &'a [Token]
@@ -469,8 +473,51 @@ fn unary<'src, 'a>(
             let expr = Box::new(Expr::Unary(op, expr));
             Ok((1 + consumed, expr))
         },
-        _ => Ok(primary(tokens)?),
+        _ => Ok(call(tokens)?),
     }
+}
+
+fn call<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+    let mut ptr = 0;
+    let (n, mut expr) = primary(tokens)?;
+    ptr += n;       // n = expr
+
+    while matches(tokens.get(ptr), &[TokenType::ParenL]) {
+        ptr += 1;   // 1 = (
+        let (n, args) = arguments(&tokens[ptr..])?;
+        ptr += n;   // n = arguments
+        consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+        ptr += 1;   // 1 = )
+
+        expr = Box::new(Expr::Call(expr, args));
+    };
+
+    Ok((ptr, expr))
+}
+
+fn arguments<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Vec<Expr>), Error<'src>> where 'a: 'src {
+    let mut ptr = 0;
+    let mut args = vec![];
+
+    // if no args bail out early
+    if matches(tokens.get(ptr), &[TokenType::ParenR]) { return Ok((ptr, args)) }
+
+    loop {
+        let (n, expr) = expression(&tokens[ptr..])?;
+        args.push(*expr);
+        ptr += n;   // n =? expr
+
+        match matches(tokens.get(ptr), &[TokenType::Comma]) {
+            true => ptr += 1, // 1 =? ,
+            false => break,
+        }
+    };
+
+    Ok((ptr, args))
 }
 
 fn primary<'src, 'a>(
