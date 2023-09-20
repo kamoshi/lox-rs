@@ -14,14 +14,12 @@ use super::error::{Error, ErrorType};
 //              | stmtIf
 //              | stmtWhile
 //              | stmtFor
-//              | stmtPrnt
 //              | stmtExpr ;
 //
 // block        → "{" declaration* "}" ;
 // stmtIf       → "if" "(" expression ")" statement ( "else" statement )? ;
 // stmtWhile    → "while" "(" expression ")" statement;
 // stmtFor      → "for" "(" ( declVar | stmtExpr | ";" ) expression? ";" expression? ")" statement ;
-// stmtPrnt     → "print" expression ";" ;
 // stmtExpr     → expression ";" ;
 //
 // expression   → assignment ;
@@ -136,7 +134,6 @@ fn statement<'src, 'a>(
         Some(TokenType::If)     => stmt_if(tokens),
         Some(TokenType::While)  => stmt_while(tokens),
         Some(TokenType::For)    => stmt_for(tokens),
-        // Some(TokenType::Print)  => stmt_prnt(&tokens[1..]),
         _ => stmt_expr(tokens),
     }
 }
@@ -287,25 +284,6 @@ fn stmt_expr<'src, 'a>(
     }
 }
 
-fn stmt_prnt<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
-    let (consumed, expr) = expression(tokens)?;
-
-    match tokens.get(consumed).map(|t| &t.ttype) {
-        Some(TokenType::Semicolon) => Ok((consumed + 2, Stmt::Print(expr))),
-        _ => {
-            let last = &tokens[consumed - 1];
-            Err(Error {
-                ttype: ErrorType::MissingSemicolon,
-                line_str: last.line_str,
-                line: last.line,
-                offset: last.offset + last.length,
-                length: 1,
-            })
-        },
-    }
-}
 
 fn expression<'src, 'a>(
     tokens: &'a [Token<'src>]

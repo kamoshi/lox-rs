@@ -22,7 +22,6 @@ fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
         Stmt::If(cond, t, f)    => exec_stmt_if(env, cond, t, f)?,
         Stmt::Var(ident, expr)  => exec_stmt_var(env, ident, expr)?,
         Stmt::Expression(expr)  => exec_stmt_expr(env, expr)?,
-        Stmt::Print(expr)       => exec_stmt_prnt(env, expr)?,
         Stmt::Block(stmts)      => exec(Some(Env::wrap(env)), stmts)?,
         Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
     };
@@ -64,11 +63,6 @@ fn exec_stmt_expr(env: EnvRef, expr: &Expr) -> Result<(), ErrorType> {
     Ok(())
 }
 
-fn exec_stmt_prnt(env: EnvRef, expr: &Expr) -> Result<(), ErrorType> {
-    let res = eval_expr(env, expr)?;
-    println!("{res}");
-    Ok(())
-}
 
 pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
     match expr {
