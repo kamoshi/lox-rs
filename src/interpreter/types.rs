@@ -1,5 +1,7 @@
 use std::{fmt::Display, rc::Rc};
-use super::{env::EnvRef, error::ErrorType};
+use crate::parser::ast::Stmt;
+
+use super::{env::{EnvRef, Env}, error::ErrorType, exec};
 
 
 #[derive(Clone)]
@@ -55,20 +57,36 @@ pub trait LoxCallable: Display {
 }
 
 pub struct LoxFn {
-
+    params: Vec<String>,
+    body: Vec<Stmt>,
 }
 
 impl LoxFn {
+    pub fn new(params: Vec<String>, body: Vec<Stmt>) -> Self {
+        Self { params, body }
+    }
 }
 
 impl LoxCallable for LoxFn {
     fn call(&self, env: EnvRef, args: &[LoxType]) -> Result<LoxType, ErrorType> {
-        todo!()
+        let env = Env::wrap(env);
+
+        for (k, v) in self.params.iter().zip(args) {
+            env.borrow_mut().define(k, v);
+        }
+
+        for k in self.params.iter().skip(args.len()) {
+            env.borrow_mut().define(k, &LoxType::Nil);
+        }
+
+        exec(Some(env), &self.body)?;
+
+        Ok(LoxType::Nil)
     }
 }
 
 impl Display for LoxFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "todo")
+        write!(f, "[fn]")
     }
 }

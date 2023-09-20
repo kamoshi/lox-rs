@@ -1,4 +1,6 @@
 use std::{env, fs, process};
+use interpreter::{env::Env, native::populate};
+
 use crate::error::LoxError;
 
 mod lexer;
@@ -41,7 +43,10 @@ fn run(source: &str) {
         Err(error) => return error.report(),
     };
 
-    match interpreter::exec(None, &ast) {
+    let env = Env::new_ref();
+    populate(env.clone());
+
+    match interpreter::exec(Some(env), &ast) {
         Ok(_) => (),
         Err(err) => err.report(),
     }

@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Block(Vec<Stmt>),
     Var(Ident, Option<Box<Expr>>),
@@ -8,7 +8,7 @@ pub enum Stmt {
     Function(Ident, Vec<Ident>, Vec<Stmt>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Literal(Literal),
     Assign(Ident, Box<Expr>),
@@ -20,17 +20,17 @@ pub enum Expr {
     Call(Box<Expr>, Vec<Expr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum OpLogic {
     And, Or
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum OpUnary {
     Not, Neg
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum OpBinary {
     Equal,
     NotEqual,
@@ -44,7 +44,7 @@ pub enum OpBinary {
     Div,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Literal {
     Num(f64),
     Str(String),
@@ -53,5 +53,5 @@ pub enum Literal {
     Nil,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ident(pub String);

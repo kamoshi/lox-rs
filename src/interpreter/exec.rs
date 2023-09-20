@@ -1,3 +1,6 @@
+use std::rc::Rc;
+
+use crate::interpreter::types::LoxFn;
 use crate::parser::ast::{Stmt, Expr, Literal, OpUnary, OpBinary, Ident, OpLogic};
 use super::types::LoxType;
 use super::env::{Env, EnvRef};
@@ -24,8 +27,16 @@ fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
         Stmt::Expression(expr)  => exec_stmt_expr(env, expr)?,
         Stmt::Block(stmts)      => exec(Some(Env::wrap(env)), stmts)?,
         Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
-        Stmt::Function(_, _, _) => todo!(),
+        Stmt::Function(n, p, b) => exec_stmt_func(env, n, p, b)?,
     };
+    Ok(())
+}
+
+fn exec_stmt_func(env: EnvRef, n: &Ident, p: &[Ident], b: &[Stmt]) -> Result<(), ErrorType> {
+    let params: Vec<_> = p.iter().map(|Ident(name)| name.to_owned()).collect();
+    let func = LoxFn::new(params, b.to_vec());
+    env.borrow_mut().define(&n.0, &LoxType::Callable(Rc::new(func)));
+
     Ok(())
 }
 
