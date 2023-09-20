@@ -50,7 +50,25 @@ impl LoxType {
     }
 }
 
-
 pub trait LoxCallable: Display {
     fn call(&self, env: EnvRef, args: &[LoxType]) -> Result<LoxType, ErrorType>;
+}
+
+pub struct LoxFn {
+
+}
+
+impl LoxFn {
+}
+
+impl LoxCallable for LoxFn {
+    fn call(&self, env: EnvRef, args: &[LoxType]) -> Result<LoxType, ErrorType> {
+        todo!()
+    }
+}
+
+impl Display for LoxFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "todo")
+    }
 }

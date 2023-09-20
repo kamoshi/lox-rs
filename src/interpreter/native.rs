@@ -41,6 +41,7 @@ impl Display for LoxFnNative {
 }
 
 pub fn populate(env: EnvRef) {
-    env.borrow_mut().define("clock", &LoxType::Callable(Rc::new(LoxFnNative::Clock)));
-    env.borrow_mut().define("print", &LoxType::Callable(Rc::new(LoxFnNative::Print)));
+    let mut env = env.borrow_mut();
+    env.define("clock", &LoxType::Callable(Rc::new(LoxFnNative::Clock)));
+    env.define("print", &LoxType::Callable(Rc::new(LoxFnNative::Print)));
 }

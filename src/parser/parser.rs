@@ -6,9 +6,14 @@ use super::error::{Error, ErrorType};
 // program      → statement* EOF ;
 //
 // declaration  → declVar
+//              | declFun
 //              | statement ;
 //
 // declVar      → "var" IDENTIFIER ( "=" expression )? ";" ;
+// declFun      → "fun" function ;
+//
+// function     → IDENTIFIER "(" parameters? ")" block ;
+// parameters   → IDENTIFIER ( "," IDENTIFIER )* ;
 //
 // statement    → block
 //              | stmtIf
@@ -82,18 +87,72 @@ fn declaration<'src, 'a>(
 ) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
     match tokens.get(0).map(|t| &t.ttype) {
         Some(TokenType::Var) => decl_var(tokens),
+        Some(TokenType::Fun) => decl_fun(tokens),
         _ => statement(tokens),
     }
+}
+
+fn decl_fun<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+    function(tokens)
+}
+
+fn function<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+    let mut ptr = 1;    // 1 = fun
+
+    let ident = consume_ident(&tokens[ptr-1], tokens.get(ptr))?;
+    ptr += 1;           // 1 = ident
+
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::MissingParenL)?;
+    ptr += 1;           // 1 = (
+
+    let (n, params) = parameters(&tokens[ptr-1..])?;
+    ptr += n;
+
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+    ptr += 1;           // 1 = )
+
+    let (n, block) = block(&tokens[ptr..])?;
+    ptr += n;           // n = block
+
+    Ok((ptr, Stmt::Function(ident, params, block)))
+}
+
+fn parameters<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Vec<Ident>), Error<'src>> where 'a: 'src {
+    const PARAM_L: usize = 1;
+    let mut ptr = PARAM_L;  // 1 = (
+    let mut params = vec![];
+
+    // if no params bail out early
+    if matches(tokens.get(ptr), &[TokenType::ParenR]) { return Ok((0, params)) }
+
+    loop {
+        let ident = consume_ident(&tokens[ptr-1], tokens.get(ptr))?;
+        params.push(ident);
+        ptr += 1;       // 1 =? ident
+
+        match matches(tokens.get(ptr), &[TokenType::Comma]) {
+            true => ptr += 1, // 1 =? ,
+            false => break,
+        }
+    };
+
+    Ok((ptr - PARAM_L, params))
 }
 
 fn decl_var<'src, 'a>(
     tokens: &'a [Token<'src>]
 ) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
     // first token is `var`
-    const C_VAR: usize = 1;
+    const VAR: usize = 1;
 
     // consumes 1 token after `var`
-    let ident = match tokens.get(C_VAR).map(|t| &t.ttype) {
+    let ident = match tokens.get(VAR).map(|t| &t.ttype) {
         Some(TokenType::Ident(name)) => Ident(name.to_owned()),
         _ => {
             let prev = &tokens[0];
@@ -108,17 +167,17 @@ fn decl_var<'src, 'a>(
     };
 
     // consumes 0 or optionally 1 + n tokens
-    let (c_opt, expr) = match tokens.get(C_VAR + 1).map(|t| &t.ttype) {
+    let (c_opt, expr) = match tokens.get(VAR + 1).map(|t| &t.ttype) {
         Some(TokenType::Equal) => {
             // get expr after equal
-            let (c_expr, expr) = expression(&tokens[C_VAR + 2..])?;
+            let (c_expr, expr) = expression(&tokens[VAR + 2..])?;
             (1 + c_expr, Some(expr))
         },
         _ => (0, None),
     };
 
     // check semicolon
-    let at = C_VAR + 1 + c_opt;
+    let at = VAR + 1 + c_opt;
     let prev = &tokens[at - 1];
     let curr = tokens.get(at);
     consume(&prev, curr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
@@ -130,7 +189,10 @@ fn statement<'src, 'a>(
     tokens: &'a [Token<'src>]
 ) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
     match tokens.get(0).map(|t| &t.ttype) {
-        Some(TokenType::BraceL) => block(tokens),
+        Some(TokenType::BraceL) => {
+            let (n, block) = block(tokens)?;
+            Ok((n, Stmt::Block(block)))
+        },
         Some(TokenType::If)     => stmt_if(tokens),
         Some(TokenType::While)  => stmt_while(tokens),
         Some(TokenType::For)    => stmt_for(tokens),
@@ -140,7 +202,7 @@ fn statement<'src, 'a>(
 
 fn block<'src, 'a>(
     tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+) -> Result<(usize, Vec<Stmt>), Error<'src>> where 'a: 'src {
     let mut statements = Vec::new();
     let mut ptr = 1;
 
@@ -154,7 +216,7 @@ fn block<'src, 'a>(
     // check closing brace
     consume(&tokens[ptr-1], tokens.get(ptr), TokenType::BraceR, ErrorType::MissingBrace)?;
 
-    Ok((ptr + 1, Stmt::Block(statements)))
+    Ok((ptr + 1, statements))
 }
 
 fn stmt_if<'src, 'a>(
@@ -562,6 +624,22 @@ fn consume<'src, 'a>(
             line_str: prev.line_str,
             line: prev.line,
             offset: prev.offset + prev.length,
+            length: 1,
+        }),
+    }
+}
+
+fn consume_ident<'src, 'a>(
+    last: &'a Token<'src>,
+    next: Option<&'a Token<'src>>,
+) -> Result<Ident, Error<'src>> {
+    match next.map(|t| &t.ttype) {
+        Some(TokenType::Ident(name)) => Ok(Ident(name.clone())),
+        _ => Err(Error {
+            ttype: ErrorType::ExpectedIdent,
+            line_str: last.line_str,
+            line: last.line,
+            offset: last.offset,
             length: 1,
         }),
     }

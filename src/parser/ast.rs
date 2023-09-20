@@ -5,6 +5,7 @@ pub enum Stmt {
     Expression(Box<Expr>),
     If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
     While(Box<Expr>, Box<Stmt>),
+    Function(Ident, Vec<Ident>, Vec<Stmt>),
 }
 
 #[derive(Debug)]

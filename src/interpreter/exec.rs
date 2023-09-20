@@ -24,6 +24,7 @@ fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
         Stmt::Expression(expr)  => exec_stmt_expr(env, expr)?,
         Stmt::Block(stmts)      => exec(Some(Env::wrap(env)), stmts)?,
         Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
+        Stmt::Function(_, _, _) => todo!(),
     };
     Ok(())
 }
