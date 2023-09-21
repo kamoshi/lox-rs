@@ -44,7 +44,7 @@ fn exec_stmt_return(env: EnvRef, expr: &Option<Box<Expr>>) -> Result<(), ErrorTy
 
 fn exec_stmt_func(env: EnvRef, n: &Ident, p: &[Ident], b: &[Stmt]) -> Result<(), ErrorType> {
     let params: Vec<_> = p.iter().map(|Ident(name)| name.to_owned()).collect();
-    let func = LoxFn::new(params, b.to_vec());
+    let func = LoxFn::new(params, b.to_vec(), env.clone());
     env.borrow_mut().define(&n.0, &LoxType::Callable(Rc::new(func)));
 
     Ok(())
@@ -106,7 +106,7 @@ fn eval_expr_call(env: EnvRef, callee: &Expr, args: &[Expr]) -> Result<LoxType, 
         .collect::<Result<_, ErrorType>>()?;
 
     let res = match callee {
-        LoxType::Callable(c) => c.call(env, &args),
+        LoxType::Callable(c) => c.call(&args),
         _ => Err(ErrorType::TypeMismatch("Can't call this value"))
     };
 

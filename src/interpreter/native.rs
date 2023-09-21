@@ -5,14 +5,14 @@ use super::types::{LoxCallable, LoxType};
 use super::error::ErrorType;
 
 
-fn clock(_: EnvRef, _: &[LoxType]) -> Result<LoxType, ErrorType> {
+fn clock(_: &[LoxType]) -> Result<LoxType, ErrorType> {
     use std::time::{SystemTime, UNIX_EPOCH};
     let epoch = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
 
     Ok(LoxType::Number(epoch.as_secs_f64()))
 }
 
-fn print(_: EnvRef, args: &[LoxType]) -> Result<LoxType, ErrorType> {
+fn print(args: &[LoxType]) -> Result<LoxType, ErrorType> {
     let args: Vec<_> = args.iter().map(|arg| arg.to_string()).collect();
     println!("{}", args.join(" "));
 
@@ -26,10 +26,10 @@ pub enum LoxFnNative {
 }
 
 impl LoxCallable for LoxFnNative {
-    fn call(&self, env: EnvRef, args: &[LoxType]) -> Result<LoxType, ErrorType> {
+    fn call(&self, args: &[LoxType]) -> Result<LoxType, ErrorType> {
         match self {
-            LoxFnNative::Clock => clock(env, args),
-            LoxFnNative::Print => print(env, args),
+            LoxFnNative::Clock => clock(args),
+            LoxFnNative::Print => print(args),
         }
     }
 }

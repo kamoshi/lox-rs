@@ -53,23 +53,24 @@ impl LoxType {
 }
 
 pub trait LoxCallable: Display {
-    fn call(&self, env: EnvRef, args: &[LoxType]) -> Result<LoxType, ErrorType>;
+    fn call(&self, args: &[LoxType]) -> Result<LoxType, ErrorType>;
 }
 
 pub struct LoxFn {
     params: Vec<String>,
     body: Vec<Stmt>,
+    closure: EnvRef,
 }
 
 impl LoxFn {
-    pub fn new(params: Vec<String>, body: Vec<Stmt>) -> Self {
-        Self { params, body }
+    pub fn new(params: Vec<String>, body: Vec<Stmt>, closure: EnvRef) -> Self {
+        Self { params, body, closure }
     }
 }
 
 impl LoxCallable for LoxFn {
-    fn call(&self, env: EnvRef, args: &[LoxType]) -> Result<LoxType, ErrorType> {
-        let env = Env::wrap(env);
+    fn call(&self, args: &[LoxType]) -> Result<LoxType, ErrorType> {
+        let env = Env::wrap(self.closure.clone());
 
         for (k, v) in self.params.iter().zip(args) {
             env.borrow_mut().define(k, v);
