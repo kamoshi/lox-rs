@@ -28,8 +28,18 @@ fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
         Stmt::Block(stmts)      => exec(Some(Env::wrap(env)), stmts)?,
         Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
         Stmt::Function(n, p, b) => exec_stmt_func(env, n, p, b)?,
+        Stmt::Return(expr)      => exec_stmt_return(env, expr)?,
     };
     Ok(())
+}
+
+fn exec_stmt_return(env: EnvRef, expr: &Option<Box<Expr>>) -> Result<(), ErrorType> {
+    let res = match expr {
+        Some(expr)  => eval_expr(env, expr)?,
+        None        => LoxType::Nil,
+    };
+
+    Err(ErrorType::Return(res))
 }
 
 fn exec_stmt_func(env: EnvRef, n: &Ident, p: &[Ident], b: &[Stmt]) -> Result<(), ErrorType> {
@@ -95,9 +105,14 @@ fn eval_expr_call(env: EnvRef, callee: &Expr, args: &[Expr]) -> Result<LoxType, 
         .map(|a| eval_expr(env.clone(), a))
         .collect::<Result<_, ErrorType>>()?;
 
-    match callee {
+    let res = match callee {
         LoxType::Callable(c) => c.call(env, &args),
         _ => Err(ErrorType::TypeMismatch("Can't call this value"))
+    };
+
+    match res {
+        Err(ErrorType::Return(res)) => Ok(res),
+        other => other,
     }
 }
 

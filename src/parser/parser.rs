@@ -19,12 +19,14 @@ use super::error::{Error, ErrorType};
 //              | stmtIf
 //              | stmtWhile
 //              | stmtFor
+//              | stmtReturn
 //              | stmtExpr ;
 //
 // block        → "{" declaration* "}" ;
 // stmtIf       → "if" "(" expression ")" statement ( "else" statement )? ;
 // stmtWhile    → "while" "(" expression ")" statement;
 // stmtFor      → "for" "(" ( declVar | stmtExpr | ";" ) expression? ";" expression? ")" statement ;
+// stmtreturn   → "return" expression? ";" ;
 // stmtExpr     → expression ";" ;
 //
 // expression   → assignment ;
@@ -196,8 +198,29 @@ fn statement<'src, 'a>(
         Some(TokenType::If)     => stmt_if(tokens),
         Some(TokenType::While)  => stmt_while(tokens),
         Some(TokenType::For)    => stmt_for(tokens),
+        Some(TokenType::Return) => stmt_return(tokens),
         _ => stmt_expr(tokens),
     }
+}
+
+fn stmt_return<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+    let mut ptr = 1;    // 1 = return
+
+    let (n, expr) = match matches(tokens.get(ptr), &[TokenType::Semicolon]) {
+        true => (0, None),
+        false => {
+            let (n, expr) = expression(&tokens[ptr..])?;
+            (n, Some(expr))
+        },
+    };
+    ptr += n;           // n =? expr
+
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+    ptr += 1;           // 1 = ;
+
+    Ok((ptr, Stmt::Return(expr)))
 }
 
 fn block<'src, 'a>(

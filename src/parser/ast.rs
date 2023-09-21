@@ -6,6 +6,7 @@ pub enum Stmt {
     If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
     While(Box<Expr>, Box<Stmt>),
     Function(Ident, Vec<Ident>, Vec<Stmt>),
+    Return(Option<Box<Expr>>),
 }
 
 #[derive(Debug, Clone)]

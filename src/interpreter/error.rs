@@ -1,10 +1,12 @@
 use crate::error::LoxError;
+use super::types::LoxType;
 
 
 pub enum ErrorType {
     TypeMismatch(&'static str),
     EnvNilAccess,
     UndefinedAssign,
+    Return(LoxType)
 }
 
 impl LoxError for ErrorType {
@@ -13,6 +15,7 @@ impl LoxError for ErrorType {
             ErrorType::TypeMismatch(s)  => format!("Type mismatch: {s}"),
             ErrorType::EnvNilAccess     => "Variable doesn't exist".into(),
             ErrorType::UndefinedAssign  => "Tried to assign to undefined variable".into(),
+            ErrorType::Return(_)        => "Return can only be called in functions".into(),
         };
 
         eprintln!("{message}");
