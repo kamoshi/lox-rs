@@ -19,6 +19,7 @@ pub enum Expr {
     Variable(Ident),
     Logic(Box<Expr>, OpLogic, Box<Expr>),
     Call(Box<Expr>, Vec<Expr>),
+    Lambda(Vec<Ident>, Vec<Stmt>),
 }
 
 #[derive(Debug, Clone)]

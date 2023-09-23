@@ -41,11 +41,14 @@ use super::error::{Error, ErrorType};
 // unary        → ( "!" | "-" ) unary
 //              | call ;
 // call         → primary ( "(" arguments? ")" )* ;
+// arguments    → expression ( "," expression )* ;
+//
 // primary      → NUMBER | STRING | "true" | "false" | "nil"
 //              | "(" expression ")"
+//              | lambda
 //              | IDENTIFIER ;
 //
-// arguments    → expression ( "," expression )* ;
+// lambda       → "fun" "(" parameters? ")" block ;
 
 
 pub fn parse<'src, 'a>(
@@ -126,8 +129,7 @@ fn function<'src, 'a>(
 fn parameters<'src, 'a>(
     tokens: &'a [Token<'src>]
 ) -> Result<(usize, Vec<Ident>), Error<'src>> where 'a: 'src {
-    const PARAM_L: usize = 1;
-    let mut ptr = PARAM_L;  // 1 = (
+    let mut ptr = 1;    // 1 = (
     let mut params = vec![];
 
     // if no params bail out early
@@ -144,7 +146,7 @@ fn parameters<'src, 'a>(
         }
     };
 
-    Ok((ptr - PARAM_L, params))
+    Ok((ptr-1, params))
 }
 
 fn decl_var<'src, 'a>(
@@ -592,12 +594,13 @@ fn primary<'src, 'a>(
     use Literal::*;
     let (consumed, variant) = match &next.ttype {
         TT::Ident(name) => (1, Box::new(Expr::Variable(Ident(name.to_owned())))),
-        TT::Num(num) => (1, Box::new(Expr::Literal(Num(*num)))),
-        TT::Str(str) => (1, Box::new(Expr::Literal(Str(str.to_owned())))),
-        TT::True     => (1, Box::new(Expr::Literal(True))),
-        TT::False    => (1, Box::new(Expr::Literal(False))),
-        TT::Nil      => (1, Box::new(Expr::Literal(Nil))),
-        TT::ParenL   => {
+        TT::Num(num)    => (1, Box::new(Expr::Literal(Num(*num)))),
+        TT::Str(str)    => (1, Box::new(Expr::Literal(Str(str.to_owned())))),
+        TT::True        => (1, Box::new(Expr::Literal(True))),
+        TT::False       => (1, Box::new(Expr::Literal(False))),
+        TT::Nil         => (1, Box::new(Expr::Literal(Nil))),
+        TT::Fun         => expr_lambda(tokens)?,
+        TT::ParenL      => {
             let (consumed, expr) = expression(&tokens[1..])?;
 
             let expr = match tokens.get(1 + consumed).map(|t| &t.ttype) {
@@ -626,6 +629,26 @@ fn primary<'src, 'a>(
     };
 
     Ok((consumed, variant))
+}
+
+fn expr_lambda<'src, 'a>(
+    tokens: &'a [Token<'src>]
+) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+    let mut ptr = 1;    // 1 = fun
+
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::MissingParenL)?;
+    ptr += 1;           // 1 = (
+
+    let (n, ident) = parameters(&tokens[ptr-1..])?;
+    ptr += n;           // n = ident
+
+    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+    ptr += 1;           // 1 = )
+
+    let (n, block) = block(&tokens[ptr..])?;
+    ptr += n;           // n = block
+
+    Ok((ptr, Expr::Lambda(ident, block).into()))
 }
 
 fn matches(token: Option<&Token>, tts: &[TokenType]) -> bool {

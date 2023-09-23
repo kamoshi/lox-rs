@@ -96,7 +96,13 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Assign(ident, expr)   => eval_expr_assign(env, ident, expr),
         Expr::Logic(l, op, r)       => eval_expr_logic(env, l, op, r),
         Expr::Call(callee, args)    => eval_expr_call(env, callee, args),
+        Expr::Lambda(ident, block)  => eval_expr_lambda(env, ident, block),
     }
+}
+
+fn eval_expr_lambda(env: EnvRef, ident: &[Ident], block: &[Stmt]) -> Result<LoxType, ErrorType> {
+    let params: Vec<_> = ident.iter().map(|i| i.0.clone()).collect();
+    Ok(LoxType::Callable(Rc::new(LoxFn::new(params, block.to_vec(), env.clone()))))
 }
 
 fn eval_expr_call(env: EnvRef, callee: &Expr, args: &[Expr]) -> Result<LoxType, ErrorType> {
