@@ -134,18 +134,17 @@ fn decl_var(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     let ident = consume_ident(tokens, ptr)?;
     ptr += 1;           // 1 = ident
 
-    let (n, expr) = match tokens.get(ptr).map(|t| &t.ttype) {
+    let expr = match tokens.get(ptr).map(|t| &t.ttype) {
         Some(TokenType::Equal) => {
-            let mut ptr = ptr + 1;  // 1 = =
+            ptr = ptr + 1;  // 1 = =
 
             let (n, expr) = expression(&tokens[ptr..])?;
-            ptr +=  n;              // n = expr
+            ptr += n;       // n = expr
 
-            (ptr, Some(expr))
+            Some(expr)
         },
-        _ => (0, None),
+        _ => None,
     };
-    ptr += n;           // n = assignment
 
     consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
     ptr += 1;           // 1 = ;

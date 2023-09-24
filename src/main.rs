@@ -35,12 +35,12 @@ fn run_file(path: &str) {
 fn run(source: &str) {
     let tokens = match lexer::tokenize(source) {
         Ok(tokens) => tokens,
-        Err(error) => return error.report(),
+        Err(error) => return error.report_rich(source),
     };
 
     let ast = match parser::parse(&tokens) {
         Ok(ast) => ast,
-        Err(error) => return error.report(),
+        Err(error) => return error.report_rich(source),
     };
 
     let env = Env::new_ref();

@@ -1,19 +1,22 @@
 use std::rc::Rc;
 
-use crate::interpreter::types::LoxFn;
 use crate::parser::ast::{Stmt, Expr, Literal, OpUnary, OpBinary, Ident, OpLogic};
-use super::types::LoxType;
+use super::types::{LoxType, LoxFn};
 use super::env::{Env, EnvRef};
 use super::error::ErrorType;
 
 
 pub fn exec(g_env: Option<EnvRef>, stmts: &[Stmt]) -> Result<(), ErrorType> {
-    let env = match g_env {
+    let mut env = match g_env {
         Some(env) => env,
         None => Env::new_ref(),
     };
 
     for stmt in stmts {
+        // lexical scope fix
+        // scheme style!
+        if matches!(stmt, Stmt::Var(..)) { env = Env::wrap(env); }
+
         exec_stmt(env.clone(), stmt)?;
     };
 
@@ -22,8 +25,8 @@ pub fn exec(g_env: Option<EnvRef>, stmts: &[Stmt]) -> Result<(), ErrorType> {
 
 fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
     match stmt {
-        Stmt::If(cond, t, f)    => exec_stmt_if(env, cond, t, f)?,
         Stmt::Var(ident, expr)  => exec_stmt_var(env, ident, expr)?,
+        Stmt::If(cond, t, f)    => exec_stmt_if(env, cond, t, f)?,
         Stmt::Expression(expr)  => exec_stmt_expr(env, expr)?,
         Stmt::Block(stmts)      => exec(Some(Env::wrap(env)), stmts)?,
         Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
