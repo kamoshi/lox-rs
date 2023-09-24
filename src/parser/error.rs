@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+
 use crate::lexer::token_type::TokenType;
 use crate::error::LoxError;
 
@@ -14,16 +15,22 @@ pub enum ErrorType {
     MissingBrace,
 }
 
-pub struct Error<'src> {
+pub struct Error {
     pub ttype: ErrorType,
-    pub line_str: &'src str,
     pub line: usize,
     pub offset: usize,
     pub length: usize,
 }
 
-impl LoxError for Error<'_> {
+impl LoxError for Error {
     fn report(&self) {
+        let line = self.line + 1;
+        let offset = self.offset + 1;
+        let range = match self.length {
+            1 => offset.to_string(),
+            _ => format!("{offset}-{}", offset + self.length - 1),
+        };
+
         use ErrorType::*;
         let message: Cow<str> = match &self.ttype {
             MissingParenL       => "Left parenthesis is expected".into(),
@@ -36,15 +43,15 @@ impl LoxError for Error<'_> {
             MissingBrace        => "Missing brace after block".into(),
         };
 
-        let line_str = self.line_str;
+        eprintln!("Error diagnostics:\nL{line}:{range} {message}");
+    }
+
+    fn report_rich(&self, source: &str) {
+        self.report();
+
+        let line_str = source.lines().nth(self.line).unwrap();
         let marker = (0..self.offset).map(|_| ' ').collect::<String>();
         let arrows = (0..self.length).map(|_| '^').collect::<String>();
-        let line = self.line + 1;
-        let offset = self.offset + 1;
-        let range = match self.length {
-            1 => offset.to_string(),
-            _ => format!("{offset}-{}", offset + self.length - 1),
-        };
-        eprintln!("Error diagnostics:\n{line_str}\n{marker}{arrows}\nL{line}:{range} {message}");
+        eprintln!("{line_str}\n{marker}{arrows}");
     }
 }

@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, borrow::Cow};
 
 
 #[derive(Debug, PartialEq, Clone)]
@@ -27,7 +27,7 @@ pub enum TokenType {
 impl Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use TokenType::*;
-        let str: String = match self {
+        let str: Cow<str> = match self {
             ParenL          => "paren-l".into(),
             ParenR          => "paren-r".into(),
             BraceL          => "brace-l".into(),
@@ -47,9 +47,9 @@ impl Display for TokenType {
             GreaterEqual    => "greater-equal".into(),
             Less            => "less".into(),
             LessEqual       => "less-equal".into(),
-            Ident(ident)    => format!("ident: {ident}"),
-            Str(str)        => format!("str: {str}"),
-            Num(num)        => format!("num: {num}"),
+            Ident(ident)    => format!("ident <{ident}>").into(),
+            Str(str)        => format!("str <{str}>").into(),
+            Num(num)        => format!("num <{num}>").into(),
             And             => "and".into(),
             Class           => "class".into(),
             Else            => "else".into(),

@@ -51,45 +51,32 @@ use super::error::{Error, ErrorType};
 // lambda       → "fun" "(" parameters? ")" block ;
 
 
-pub fn parse<'src, 'a>(
-    tokens: &'a [Token]
-) -> Result<Vec<Stmt>, Error<'src>> where 'a: 'src {
-    let mut statements = vec![];
-    let mut curr = 0;
+pub fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, Error> {
+    let mut ptr = 0;
+    let mut top = vec![];
 
-    while curr < tokens.len() {
-        if tokens.get(curr).map(|t| t.ttype == TokenType::Eof).unwrap_or(false) { break };
-        let (consumed, stmt) = declaration(&tokens[curr..])?;
+    while !matches!(tokens[ptr].ttype, TokenType::Eof) {
+        let (n, decl) = declaration(&tokens[ptr..])?;
+        ptr += n;       // n = decl
 
-        statements.push(stmt);
-        curr += consumed;
+        top.push(decl);
     }
 
-    return Ok(statements);
+    return Ok(top);
 }
 
-pub fn parse_expr<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<Expr, Error<'src>> where 'a: 'src {
-    let (consumed, expr) = expression(tokens)?;
-    match tokens.get(consumed).map(|t| &t.ttype) {
-        Some(TokenType::Eof) | None => Ok(*expr),
-        _ => {
-            let next = &tokens[consumed];
-            Err(Error {
-                ttype: ErrorType::ExprLeftover,
-                line_str: next.line_str,
-                line: next.line,
-                offset: next.offset,
-                length: next.length,
-            })
-        }
-    }
+pub fn parse_expr(tokens: &[Token]) -> Result<Expr, Error> {
+    let mut ptr = 0;
+
+    let (n, expr) = expression(tokens)?;
+    ptr += n;           // n = expr
+
+    consume(tokens, ptr, TokenType::Eof, ErrorType::ExprLeftover)?;
+
+    Ok(*expr)
 }
 
-fn declaration<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+fn declaration(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     match tokens.get(0).map(|t| &t.ttype) {
         Some(TokenType::Var) => decl_var(tokens),
         Some(TokenType::Fun) => decl_fun(tokens),
@@ -97,27 +84,23 @@ fn declaration<'src, 'a>(
     }
 }
 
-fn decl_fun<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+fn decl_fun(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     function(tokens)
 }
 
-fn function<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+fn function(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     let mut ptr = 1;    // 1 = fun
 
-    let ident = consume_ident(&tokens[ptr-1], tokens.get(ptr))?;
+    let ident = consume_ident(tokens, ptr)?;
     ptr += 1;           // 1 = ident
 
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::MissingParenL)?;
+    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
     ptr += 1;           // 1 = (
 
     let (n, params) = parameters(&tokens[ptr-1..])?;
-    ptr += n;
+    ptr += n;           // n = params
 
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
     ptr += 1;           // 1 = )
 
     let (n, block) = block(&tokens[ptr..])?;
@@ -126,9 +109,7 @@ fn function<'src, 'a>(
     Ok((ptr, Stmt::Function(ident, params, block)))
 }
 
-fn parameters<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Vec<Ident>), Error<'src>> where 'a: 'src {
+fn parameters(tokens: &[Token]) -> Result<(usize, Vec<Ident>), Error> {
     let mut ptr = 1;    // 1 = (
     let mut params = vec![];
 
@@ -136,62 +117,45 @@ fn parameters<'src, 'a>(
     if matches(tokens.get(ptr), &[TokenType::ParenR]) { return Ok((0, params)) }
 
     loop {
-        let ident = consume_ident(&tokens[ptr-1], tokens.get(ptr))?;
-        params.push(ident);
+        let ident = consume_ident(tokens, ptr)?;
         ptr += 1;       // 1 =? ident
 
-        match matches(tokens.get(ptr), &[TokenType::Comma]) {
-            true => ptr += 1, // 1 =? ,
-            false => break,
-        }
+        params.push(ident);
+        if !matches(tokens.get(ptr), &[TokenType::Comma]) { break };
+        ptr += 1;       // 1 =? ,
     };
 
     Ok((ptr-1, params))
 }
 
-fn decl_var<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
-    // first token is `var`
-    const VAR: usize = 1;
+fn decl_var(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+    let mut ptr = 1;    // 1 = var
 
-    // consumes 1 token after `var`
-    let ident = match tokens.get(VAR).map(|t| &t.ttype) {
-        Some(TokenType::Ident(name)) => Ident(name.to_owned()),
-        _ => {
-            let prev = &tokens[0];
-            return Err(Error {
-                ttype: ErrorType::ExpectedIdent,
-                line_str: prev.line_str,
-                line: prev.line,
-                offset: prev.offset + prev.length,
-                length: 1,
-            });
-        },
-    };
+    let ident = consume_ident(tokens, ptr)?;
+    ptr += 1;           // 1 = ident
 
-    // consumes 0 or optionally 1 + n tokens
-    let (c_opt, expr) = match tokens.get(VAR + 1).map(|t| &t.ttype) {
+    let (n, expr) = match tokens.get(ptr).map(|t| &t.ttype) {
         Some(TokenType::Equal) => {
-            // get expr after equal
-            let (c_expr, expr) = expression(&tokens[VAR + 2..])?;
-            (1 + c_expr, Some(expr))
+            let mut ptr = ptr + 1;  // 1 = =
+
+            let (n, expr) = expression(&tokens[ptr..])?;
+            ptr +=  n;              // n = expr
+
+            (ptr, Some(expr))
         },
         _ => (0, None),
     };
+    ptr += n;           // n = assignment
 
-    // check semicolon
-    let at = VAR + 1 + c_opt;
-    let prev = &tokens[at - 1];
-    let curr = tokens.get(at);
-    consume(&prev, curr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+    consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+    ptr += 1;           // 1 = ;
 
-    Ok((at + 1, Stmt::Var(ident, expr)))
+    Ok((ptr, Stmt::Var(ident, expr)))
 }
 
-fn statement<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+fn statement(
+    tokens: &[Token]
+) -> Result<(usize, Stmt), Error> {
     match tokens.get(0).map(|t| &t.ttype) {
         Some(TokenType::BraceL) => {
             let (n, block) = block(tokens)?;
@@ -205,9 +169,7 @@ fn statement<'src, 'a>(
     }
 }
 
-fn stmt_return<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+fn stmt_return(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     let mut ptr = 1;    // 1 = return
 
     let (n, expr) = match matches(tokens.get(ptr), &[TokenType::Semicolon]) {
@@ -219,40 +181,36 @@ fn stmt_return<'src, 'a>(
     };
     ptr += n;           // n =? expr
 
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+    consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
     ptr += 1;           // 1 = ;
 
     Ok((ptr, Stmt::Return(expr)))
 }
 
-fn block<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Vec<Stmt>), Error<'src>> where 'a: 'src {
-    let mut statements = Vec::new();
-    let mut ptr = 1;
+fn block(tokens: &[Token]) -> Result<(usize, Vec<Stmt>), Error> {
+    let mut ptr = 1;    // 1 = {
+    let mut block = vec![];
 
     while ptr < tokens.len() && !matches(tokens.get(ptr), &[TokenType::BraceR, TokenType::Eof]) {
-        let (c, stmt) = declaration(&tokens[ptr..])?;
+        let (n, stmt) = declaration(&tokens[ptr..])?;
+        ptr += n;
 
-        statements.push(stmt);
-        ptr += c;
+        block.push(stmt);
     }
 
-    // check closing brace
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::BraceR, ErrorType::MissingBrace)?;
+    consume(tokens, ptr, TokenType::BraceR, ErrorType::MissingBrace)?;
+    ptr += 1;           // 1 = }
 
-    Ok((ptr + 1, statements))
+    Ok((ptr, block))
 }
 
-fn stmt_if<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+fn stmt_if(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     let mut ptr = 1;    // 1 = if
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::MissingParenL)?;
+    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
     ptr += 1;           // 1 = (
     let (n, cond) = expression(&tokens[ptr..])?;
     ptr += n;           // n = expr
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
     ptr += 1;           // 1 = )
 
     let (n, branch_t) = statement(&tokens[ptr..])?;
@@ -271,15 +229,13 @@ fn stmt_if<'src, 'a>(
     Ok((ptr, Stmt::If(cond, branch_t.into(), branch_f)))
 }
 
-fn stmt_while<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+fn stmt_while(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     let mut ptr = 1;    // 1 = while
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::MissingParenL)?;
+    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
     ptr += 1;           // 1 = (
     let (n, cond) = expression(&tokens[ptr..])?;
     ptr += n;           // n = expr
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
     ptr += 1;           // 1 = )
     let (n, body) = statement(&tokens[ptr..])?;
     ptr += n;           // n = expr
@@ -287,11 +243,9 @@ fn stmt_while<'src, 'a>(
     Ok((ptr, Stmt::While(cond, body.into())))
 }
 
-fn stmt_for<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
+fn stmt_for(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     let mut ptr = 1;    // 1 = for
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::MissingParenL)?;
+    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
     ptr += 1;           // 1 = (
 
     let init = match tokens.get(ptr).map(|t| &t.ttype) {
@@ -319,7 +273,7 @@ fn stmt_for<'src, 'a>(
             expr
         },
     };
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+    consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
     ptr += 1;           // 1 = ;
 
     let inc = match tokens.get(ptr).map(|t| &t.ttype) {
@@ -330,7 +284,7 @@ fn stmt_for<'src, 'a>(
             Some(expr)
         },
     };
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
     ptr += 1;           // 1 = )
 
     let (n, body) = statement(&tokens[ptr..])?;
@@ -351,49 +305,39 @@ fn stmt_for<'src, 'a>(
     Ok((ptr, body))
 }
 
-fn stmt_expr<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Stmt), Error<'src>> where 'a: 'src {
-    let (consumed, expr) = expression(tokens)?;
+fn stmt_expr(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+    let mut ptr = 0;
 
-    match tokens.get(consumed).map(|t| &t.ttype) {
-        Some(TokenType::Semicolon) => Ok((consumed + 1, Stmt::Expression(expr))),
-        _ => {
-            let last = &tokens[consumed - 1];
-            Err(Error {
-                ttype: ErrorType::MissingSemicolon,
-                line_str: last.line_str,
-                line: last.line,
-                offset: last.offset + last.length,
-                length: 1,
-            })
-        },
-    }
+    let (n, expr) = expression(tokens)?;
+    ptr += n;           // n = expr
+
+    consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+    ptr += 1;           // 1 = ;
+
+    Ok((ptr, Stmt::Expression(expr)))
 }
 
 
-fn expression<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+fn expression(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     assignment(tokens)
 }
 
-fn assignment<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
-    let (c_expr, expr) = or(tokens)?;
+fn assignment(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 0;
 
-    match tokens.get(c_expr).map(|t| &t.ttype) {
+    let (n, expr) = or(tokens)?;
+    ptr += n;           // n = expr
+
+    match tokens.get(n).map(|t| &t.ttype) {
         Some(TokenType::Equal) => {
-            let (c_next, next) = assignment(&tokens[c_expr + 1..])?;
+            let (c_next, next) = assignment(&tokens[n + 1..])?;
 
             match *expr {
-                Expr::Variable(ident) => Ok((c_expr + 1 + c_next, Box::new(Expr::Assign(ident, next)))),
+                Expr::Variable(ident) => Ok((n + 1 + c_next, Box::new(Expr::Assign(ident, next)))),
                 _ => {
-                    let equals = &tokens[c_expr];
+                    let equals = &tokens[n];
                     Err(Error {
                         ttype: ErrorType::AssignmentTarget,
-                        line_str: equals.line_str,
                         line: equals.line,
                         offset: equals.offset,
                         length: equals.length,
@@ -401,151 +345,163 @@ fn assignment<'src, 'a>(
                 },
             }
         },
-        _ => Ok((c_expr, expr)),
+        _ => Ok((ptr, expr)),
     }
 }
 
-fn or<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+fn or(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
+
     let (n, mut expr) = and(tokens)?;
-    ptr += n;       // n = expr
+    ptr += n;           // n = expr
 
     while matches(tokens.get(ptr), &[TokenType::Or]) {
-        ptr += 1;   // 1 =* or
+        ptr += 1;       // 1 =* or
         let (n, r) = and(&tokens[ptr..])?;
-        ptr += n;   // n =* expr
+        ptr += n;       // n =* expr
         expr = Box::new(Expr::Logic(expr, OpLogic::Or, r));
     };
 
     Ok((ptr, expr))
 }
 
-fn and<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+fn and(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
+
     let (n, mut expr) = equality(tokens)?;
-    ptr += n;       // n = expr
+    ptr += n;           // n = expr
 
     while matches(tokens.get(ptr), &[TokenType::And]) {
-        ptr += 1;   // 1 =* and
+        ptr += 1;       // 1 =* and
         let (n, r) = equality(&tokens[ptr..])?;
-        ptr += n;   // n =* expr
+        ptr += n;       // n =* expr
         expr = Box::new(Expr::Logic(expr, OpLogic::And, r));
     };
 
     Ok((ptr, expr))
 }
 
-fn equality<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
-    let (mut consumed, mut expr) = comparison(tokens)?;
+fn equality(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 0;
 
-    while matches(tokens.get(consumed), &[TokenType::BangEqual, TokenType::EqualEqual]) {
-        let op = match tokens[consumed].ttype {
+    let (n, mut expr) = comparison(tokens)?;
+    ptr += n;           // n = expr
+
+    while matches(tokens.get(ptr), &[TokenType::BangEqual, TokenType::EqualEqual]) {
+        let op = match tokens[ptr].ttype {
             TokenType::BangEqual    => OpBinary::NotEqual,
             TokenType::EqualEqual   => OpBinary::Equal,
             _ => unreachable!(),
         };
+        ptr += 1;       // 1 = op
 
-        let (next, next_expr) = comparison(&tokens[1+consumed..])?;
-        consumed += 1 + next;
-        expr = Box::new(Expr::Binary(expr, op, next_expr))
+        let (n, next) = comparison(&tokens[ptr..])?;
+        ptr += n;       // n = expr
+
+        expr = Box::new(Expr::Binary(expr, op, next))
     }
 
-    Ok((consumed, expr))
+    Ok((ptr, expr))
 }
 
 
-fn comparison<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
-    let (mut consumed, mut expr) = term(tokens)?;
+fn comparison(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 0;
+
+    let (n, mut expr) = term(tokens)?;
+    ptr += n;           // n = expr
 
     let signs = &[TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual];
-    while matches(tokens.get(consumed), signs) {
-        let op = match tokens[consumed].ttype {
+    while matches(tokens.get(ptr), signs) {
+        let op = match tokens[ptr].ttype {
             TokenType::Greater      => OpBinary::Greater,
             TokenType::GreaterEqual => OpBinary::GreaterEqual,
             TokenType::Less         => OpBinary::Less,
             TokenType::LessEqual    => OpBinary::LessEqual,
             _ => unreachable!(),
         };
+        ptr += 1;       // 1 = op
 
-        let (next, next_expr) = term(&tokens[1+consumed..])?;
-        consumed += 1 + next;
-        expr = Box::new(Expr::Binary(expr, op, next_expr))
+        let (n, next) = term(&tokens[ptr..])?;
+        ptr += n;       // n = expr
+
+        expr = Box::new(Expr::Binary(expr, op, next))
     }
 
-    Ok((consumed, expr))
+    Ok((ptr, expr))
 }
 
-fn term<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
-    let (mut consumed, mut expr) = factor(tokens)?;
+fn term(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 0;
 
-    while matches(tokens.get(consumed), &[TokenType::Minus, TokenType::Plus]) {
-        let op = match tokens[consumed].ttype {
+    let (n, mut expr) = factor(tokens)?;
+    ptr += n;           // n = expr
+
+    while matches(tokens.get(ptr), &[TokenType::Minus, TokenType::Plus]) {
+        let op = match tokens[ptr].ttype {
             TokenType::Minus    => OpBinary::Sub,
             TokenType::Plus     => OpBinary::Add,
             _ => unreachable!(),
         };
+        ptr += 1;       // 1 = op
 
-        let (next, next_expr) = factor(&tokens[1+consumed..])?;
-        consumed += 1 + next;
-        expr = Box::new(Expr::Binary(expr, op, next_expr))
+        let (n, next) = factor(&tokens[ptr..])?;
+        ptr += n;       // n = expr
+
+        expr = Box::new(Expr::Binary(expr, op, next))
     }
 
-    Ok((consumed, expr))
+    Ok((ptr, expr))
 }
 
-fn factor<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
-    let (mut consumed, mut expr) = unary(tokens)?;
+fn factor(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 0;
 
-    while matches(tokens.get(consumed), &[TokenType::Slash, TokenType::Star]) {
-        let op = match tokens[consumed].ttype {
+    let (n, mut expr) = unary(tokens)?;
+    ptr += n;           // n = expr
+
+    while matches(tokens.get(ptr), &[TokenType::Slash, TokenType::Star]) {
+        let op = match tokens[ptr].ttype {
             TokenType::Slash    => OpBinary::Div,
             TokenType::Star     => OpBinary::Mul,
             _ => unreachable!(),
         };
+        ptr += 1;       // 1 = op
 
-        let (next, next_expr) = unary(&tokens[1+consumed..])?;
-        consumed += 1 + next;
-        expr = Box::new(Expr::Binary(expr, op, next_expr))
+        let (n, next) = unary(&tokens[ptr..])?;
+        ptr += n;       // n = expr
+
+        expr = Box::new(Expr::Binary(expr, op, next))
     }
 
-    Ok((consumed, expr))
+    Ok((ptr, expr))
 }
 
-fn unary<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
-    let next = &tokens[0];
-    match next.ttype {
-        TokenType::Bang | TokenType::Minus => {
-            let op = match next.ttype {
+fn unary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 0;
+
+    match matches(tokens.get(ptr), &[TokenType::Bang, TokenType::Minus]) {
+        true => {
+            let op = match tokens[ptr].ttype {
                 TokenType::Bang     => OpUnary::Not,
                 TokenType::Minus    => OpUnary::Neg,
                 _ => unreachable!()
             };
-            let (consumed, expr) = unary(&tokens[1..])?;
+            ptr += 1;   // 1 = op
+
+            let (n, expr) = unary(&tokens[1..])?;
+            ptr += n;   // n = expr
+
             let expr = Box::new(Expr::Unary(op, expr));
-            Ok((1 + consumed, expr))
+            Ok((ptr, expr))
         },
-        _ => Ok(call(tokens)?),
+        false => call(tokens),
     }
 }
 
-fn call<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+fn call(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
+
     let (n, mut expr) = primary(tokens)?;
     ptr += n;       // n = expr
 
@@ -553,7 +509,7 @@ fn call<'src, 'a>(
         ptr += 1;   // 1 = (
         let (n, args) = arguments(&tokens[ptr..])?;
         ptr += n;   // n = arguments
-        consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+        consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
         ptr += 1;   // 1 = )
 
         expr = Box::new(Expr::Call(expr, args));
@@ -562,9 +518,7 @@ fn call<'src, 'a>(
     Ok((ptr, expr))
 }
 
-fn arguments<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Vec<Expr>), Error<'src>> where 'a: 'src {
+fn arguments(tokens: &[Token]) -> Result<(usize, Vec<Expr>), Error> {
     let mut ptr = 0;
     let mut args = vec![];
 
@@ -585,9 +539,7 @@ fn arguments<'src, 'a>(
     Ok((ptr, args))
 }
 
-fn primary<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+fn primary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let next = &tokens[0];
 
     use TokenType as TT;
@@ -600,28 +552,9 @@ fn primary<'src, 'a>(
         TT::False       => (1, Box::new(Expr::Literal(False))),
         TT::Nil         => (1, Box::new(Expr::Literal(Nil))),
         TT::Fun         => expr_lambda(tokens)?,
-        TT::ParenL      => {
-            let (consumed, expr) = expression(&tokens[1..])?;
-
-            let expr = match tokens.get(1 + consumed).map(|t| &t.ttype) {
-                Some(TokenType::ParenR) => Box::new(Expr::Grouping(expr)),
-                _ => {
-                    let last = &tokens[consumed];
-                    return Err(Error {
-                        ttype: ErrorType::MissingParenR,
-                        line_str: last.line_str,
-                        line: last.line,
-                        offset: last.offset + last.length,
-                        length: 1,
-                    })
-                },
-            };
-
-            (2 + consumed, expr)
-        },
+        TT::ParenL      => expr_group(tokens)?,
         tt => return Err(Error {
             ttype: ErrorType::InvalidToken(tt.to_owned()),
-            line_str: next.line_str,
             line: next.line,
             offset: next.offset,
             length: next.length,
@@ -631,18 +564,29 @@ fn primary<'src, 'a>(
     Ok((consumed, variant))
 }
 
-fn expr_lambda<'src, 'a>(
-    tokens: &'a [Token<'src>]
-) -> Result<(usize, Box<Expr>), Error<'src>> where 'a: 'src {
+fn expr_group(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 1;        // 1 = (
+
+    let (n, expr) = expression(&tokens[ptr..])?;
+    ptr += n;               // n = expr
+
+    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
+    ptr += 1;               // 1 = )
+
+    Ok((ptr, Box::new(Expr::Grouping(expr))))
+}
+
+
+fn expr_lambda(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;    // 1 = fun
 
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenL, ErrorType::MissingParenL)?;
+    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
     ptr += 1;           // 1 = (
 
     let (n, ident) = parameters(&tokens[ptr-1..])?;
     ptr += n;           // n = ident
 
-    consume(&tokens[ptr-1], tokens.get(ptr), TokenType::ParenR, ErrorType::MissingParenR)?;
+    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
     ptr += 1;           // 1 = )
 
     let (n, block) = block(&tokens[ptr..])?;
@@ -657,17 +601,17 @@ fn matches(token: Option<&Token>, tts: &[TokenType]) -> bool {
         .unwrap_or(false)
 }
 
-fn consume<'src, 'a>(
-    prev: &'a Token<'src>,
-    curr: Option<&'a Token>,
+fn consume(
+    tokens: &[Token],
+    at: usize,
     tt: TokenType,
     et: ErrorType,
-) -> Result<(), Error<'src>> {
-    match curr.map(|t| t.ttype == tt) {
+) -> Result<(), Error> {
+    let prev = &tokens[at-1];
+    match tokens.get(at).map(|t| t.ttype == tt) {
         Some(true) => Ok(()),
         _ => Err(Error {
             ttype: et,
-            line_str: prev.line_str,
             line: prev.line,
             offset: prev.offset + prev.length,
             length: 1,
@@ -675,17 +619,17 @@ fn consume<'src, 'a>(
     }
 }
 
-fn consume_ident<'src, 'a>(
-    last: &'a Token<'src>,
-    next: Option<&'a Token<'src>>,
-) -> Result<Ident, Error<'src>> {
-    match next.map(|t| &t.ttype) {
+fn consume_ident(
+    tokens: &[Token],
+    at: usize,
+) -> Result<Ident, Error> {
+    let prev = &tokens[at-1];
+    match tokens.get(at).map(|t| &t.ttype) {
         Some(TokenType::Ident(name)) => Ok(Ident(name.clone())),
         _ => Err(Error {
             ttype: ErrorType::ExpectedIdent,
-            line_str: last.line_str,
-            line: last.line,
-            offset: last.offset,
+            line: prev.line,
+            offset: prev.offset + prev.length,
             length: 1,
         }),
     }

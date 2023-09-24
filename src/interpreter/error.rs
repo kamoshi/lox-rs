@@ -20,4 +20,8 @@ impl LoxError for ErrorType {
 
         eprintln!("{message}");
     }
+
+    fn report_rich(&self, source: &str) {
+        todo!()
+    }
 }

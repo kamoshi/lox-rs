@@ -3,15 +3,14 @@ use super::token_type::TokenType;
 
 
 #[derive(Debug)]
-pub struct Token<'src> {
+pub struct Token {
     pub ttype: TokenType,
-    pub line_str: &'src str,
     pub line: usize,
     pub offset: usize,
     pub length: usize,
 }
 
-impl Display for Token<'_> {
+impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let token_type = &self.ttype;
         let line = self.line;

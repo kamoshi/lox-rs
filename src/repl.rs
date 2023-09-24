@@ -51,7 +51,7 @@ fn eval(env: EnvRef, source: &str) {
     // First try parsing expressions and then try statements
     let tokens = match lexer::tokenize(source) {
         Ok(tokens) => tokens,
-        Err(error) => return error.report(),
+        Err(error) => return error.report_rich(source),
     };
 
     let ast = parser::parse_expr(&tokens).map(ReplMode::from)
@@ -59,7 +59,7 @@ fn eval(env: EnvRef, source: &str) {
 
     let ast = match ast {
         Ok(ast) => ast,
-        Err(error) => return error.report(),
+        Err(error) => return error.report_rich(source),
     };
 
     let result = match ast {

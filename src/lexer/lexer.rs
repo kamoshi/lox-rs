@@ -12,11 +12,11 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
         while offset < chars.len() {
             let (length, token) = match read_token(&chars[offset..]) {
                 Ok(lexed) => lexed,
-                Err(ttype) => return Err(Error { ttype, line_str, line, offset }),
+                Err(ttype) => return Err(Error { ttype, line, offset }),
             };
 
             if let Some(ttype) = token {
-                tokens.push(Token { ttype, line_str, line, offset, length });
+                tokens.push(Token { ttype, line, offset, length });
             }
 
             offset += length;
@@ -25,7 +25,6 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
 
     tokens.push(Token {
         ttype: TokenType::Eof,
-        line_str: "",
         line: tokens.last().map(|t| t.line + 1).unwrap_or(1),
         offset: 0,
         length: 0
