@@ -48,6 +48,8 @@ use super::error::{Error, ErrorType};
 //              | lambda
 //              | IDENTIFIER ;
 //
+// array        → "[" ( expression ( "," expression )* )? "]" ;
+//
 // lambda       → "fun" "(" parameters? ")" block ;
 
 
@@ -62,7 +64,7 @@ pub fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, Error> {
         top.push(decl);
     }
 
-    return Ok(top);
+    Ok(top)
 }
 
 pub fn parse_expr(tokens: &[Token]) -> Result<Expr, Error> {
@@ -77,7 +79,7 @@ pub fn parse_expr(tokens: &[Token]) -> Result<Expr, Error> {
 }
 
 fn declaration(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-    match tokens.get(0).map(|t| &t.ttype) {
+    match tokens.first().map(|t| &t.ttype) {
         Some(TokenType::Var) => decl_var(tokens),
         Some(TokenType::Fun) => decl_fun(tokens),
         _ => statement(tokens),
@@ -136,7 +138,7 @@ fn decl_var(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
 
     let expr = match tokens.get(ptr).map(|t| &t.ttype) {
         Some(TokenType::Equal) => {
-            ptr = ptr + 1;  // 1 = =
+            ptr += 1;       // 1 = =
 
             let (n, expr) = expression(&tokens[ptr..])?;
             ptr += n;       // n = expr
@@ -155,7 +157,7 @@ fn decl_var(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
 fn statement(
     tokens: &[Token]
 ) -> Result<(usize, Stmt), Error> {
-    match tokens.get(0).map(|t| &t.ttype) {
+    match tokens.first().map(|t| &t.ttype) {
         Some(TokenType::BraceL) => {
             let (n, block) = block(tokens)?;
             Ok((n, Stmt::Block(block)))
@@ -552,6 +554,7 @@ fn primary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
         TT::Nil         => (1, Box::new(Expr::Literal(Nil))),
         TT::Fun         => expr_lambda(tokens)?,
         TT::ParenL      => expr_group(tokens)?,
+        TT::SquareL     => expr_array(tokens)?,
         tt => return Err(Error {
             ttype: ErrorType::InvalidToken(tt.to_owned()),
             line: next.line,
@@ -573,6 +576,18 @@ fn expr_group(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     ptr += 1;               // 1 = )
 
     Ok((ptr, Box::new(Expr::Grouping(expr))))
+}
+
+fn expr_array(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 1;        // [
+
+    let (n, arr) = arguments(&tokens[ptr..])?;
+    ptr += n;
+
+    consume(tokens, ptr, TokenType::SquareR, ErrorType::MissingParenR)?;
+    ptr += 1;
+
+    Ok((ptr, Expr::Array(arr).into()))
 }
 
 

@@ -5,7 +5,7 @@ use std::{fmt::Display, borrow::Cow};
 pub enum TokenType {
 
     // Single-character tokens
-    ParenL, ParenR, BraceL, BraceR,
+    ParenL, ParenR, BraceL, BraceR, SquareL, SquareR,
     Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
 
     // One or two character tokens
@@ -20,6 +20,7 @@ pub enum TokenType {
     // Keywords
     And, Class, Else, False, Fun, For, If, Nil, Or,
     Return, Super, This, True, Var, While,
+    Typeclass, Instance, Variant,
 
     Eof,
 }
@@ -32,6 +33,8 @@ impl Display for TokenType {
             ParenR          => "paren-r".into(),
             BraceL          => "brace-l".into(),
             BraceR          => "brace-r".into(),
+            SquareL         => "square-l".into(),
+            SquareR         => "square-r".into(),
             Comma           => "comma".into(),
             Dot             => "dot".into(),
             Minus           => "minus".into(),
@@ -66,6 +69,9 @@ impl Display for TokenType {
             Var             => "var".into(),
             While           => "while".into(),
             Eof             => "EOF".into(),
+            Typeclass       => "typeclass".into(),
+            Instance        => "instance".into(),
+            Variant         => "variant".into(),
         };
 
         write!(f, "{str}")

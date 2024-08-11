@@ -100,7 +100,16 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Logic(l, op, r)       => eval_expr_logic(env, l, op, r),
         Expr::Call(callee, args)    => eval_expr_call(env, callee, args),
         Expr::Lambda(ident, block)  => eval_expr_lambda(env, ident, block),
+        Expr::Array(exprs)          => eval_expr_array(env, exprs),
     }
+}
+
+fn eval_expr_array(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
+    let mut arr = vec![];
+    for expr in exprs {
+        arr.push(eval_expr(env.clone(), expr)?);
+    }
+    Ok(LoxType::Array(arr))
 }
 
 fn eval_expr_lambda(env: EnvRef, ident: &[Ident], block: &[Stmt]) -> Result<LoxType, ErrorType> {
@@ -170,6 +179,7 @@ fn eval_expr_unary(env: EnvRef, op: &OpUnary, expr: &Box<Expr>) -> Result<LoxTyp
             Number(f)   => Ok(Number(-f)),
             String(_)   => Err(ErrorType::TypeMismatch("Can't negate a string value")),
             Callable(_) => Err(ErrorType::TypeMismatch("Can't negate a function value")),
+            Array(_)    => Err(ErrorType::TypeMismatch("Can't negate a function value")),
         },
     }
 }

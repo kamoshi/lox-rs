@@ -11,6 +11,7 @@ pub enum LoxType {
     Number(f64),
     String(String),
     Callable(Rc<dyn LoxCallable>),
+    Array(Vec<LoxType>),
 }
 
 
@@ -23,6 +24,17 @@ impl Display for LoxType {
             Number(n)   => write!(f, "{n}"),
             String(s)   => write!(f, "{s}"),
             Callable(c) => write!(f, "{c}"),
+            Array(a)    => {
+                write!(f, "[")?;
+                let mut iter = a.iter();
+                if let Some(first) = iter.next() {
+                    write!(f, "{}", first)?;
+                    for elem in iter {
+                        write!(f, ", {}", elem)?;
+                    }
+                }
+                write!(f, "]")
+            }
         }
     }
 }
@@ -48,6 +60,7 @@ impl LoxType {
             LoxType::Number(_)      => true,
             LoxType::String(_)      => true,
             LoxType::Callable(_)    => true,
+            LoxType::Array(_)       => false,
         }
     }
 }

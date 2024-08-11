@@ -40,12 +40,14 @@ fn read_token(
     let next = chars.get(1);
     match curr {
         // single char
-        '(' | ')' | '{' | '}' | ',' | '.' | '-' | '+' | ';' | '*' => {
+        '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' | '-' | '+' | ';' | '*' => {
             let ttype = match curr {
                 '(' => TokenType::ParenL,
                 ')' => TokenType::ParenR,
                 '{' => TokenType::BraceL,
                 '}' => TokenType::BraceR,
+                '[' => TokenType::SquareL,
+                ']' => TokenType::SquareR,
                 ',' => TokenType::Comma,
                 '.' => TokenType::Dot,
                 '-' => TokenType::Minus,
@@ -139,6 +141,9 @@ fn read_token(
                 "true"  => TokenType::True,
                 "var"   => TokenType::Var,
                 "while" => TokenType::While,
+                "variant"   => TokenType::Variant,
+                "typeclass" => TokenType::Typeclass,
+                "instance"  => TokenType::Instance,
                 other   => TokenType::Ident(String::from(other)),
             };
             Ok((consumed, Some(token_type)))

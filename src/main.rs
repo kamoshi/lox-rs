@@ -1,36 +1,37 @@
 use std::{env, fs, process};
-use interpreter::{env::Env, native::populate};
+
+use clap::Parser;
 
 use crate::error::LoxError;
+use crate::interpreter::{env::Env, native::populate};
 
-mod lexer;
-mod parser;
 mod error;
 mod interpreter;
+mod lexer;
+mod parser;
 mod repl;
 
-
-fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    match args.len() {
-        3.. => {
-            println!("Usage: lox-rs [script]");
-            process::exit(64);
-        },
-        2 => run_file(&args[1]),
-        _ => repl::run_repl(),
-    }
-
-    println!()
+#[derive(Parser)]
+struct Args {
+    /// Optional script file to run
+    script: Option<String>,
 }
 
+fn main() {
+    let args = Args::parse();
+
+    match args.script {
+        Some(name) => run_file(&name),
+        None => {
+            repl::run_repl();
+        }
+    }
+}
 
 fn run_file(path: &str) {
     let source = fs::read_to_string(path).expect("Couldn't read");
     let _result = run(&source); //.unwrap_or_else(|_| process::exit(65));
 }
-
 
 fn run(source: &str) {
     let tokens = match lexer::tokenize(source) {

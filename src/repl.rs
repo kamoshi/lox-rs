@@ -1,9 +1,13 @@
-use std::io::{self, Write};
+use rustyline::error::ReadlineError;
+use rustyline::DefaultEditor;
+
+use crate::error::LoxError;
+use crate::interpreter::{
+    self,
+    env::{Env, EnvRef},
+};
 use crate::lexer;
 use crate::parser::{self, ast};
-use crate::interpreter::{self, env::{Env, EnvRef}};
-use crate::error::LoxError;
-
 
 enum ReplMode {
     Stmt(Vec<ast::Stmt>),
@@ -23,28 +27,32 @@ impl From<ast::Expr> for ReplMode {
 }
 
 pub(crate) fn run_repl() {
-    let mut buffer = String::new();
     let env = Env::new_ref();
     interpreter::native::populate(env.clone());
 
+    let mut rl = DefaultEditor::new().unwrap();
+
     loop {
-        buffer.clear();
-        let read = match read(&mut buffer) {
-            Ok(0) => break,
-            Err(err) => return eprintln!("{err}"),
-            Ok(_) => &buffer,
-        };
-
-        eval(env.clone(), &read);
-        println!("");
+        match rl.readline("> ") {
+            Ok(line) => {
+                eval(env.clone(), &line);
+                rl.add_history_entry(&line).unwrap();
+                println!();
+            }
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
+        }
     }
-}
-
-
-fn read(buffer: &mut String) -> Result<usize, io::Error> {
-    print!("> ");
-    let _ = io::stdout().flush();
-    io::stdin().read_line(buffer)
 }
 
 fn eval(env: EnvRef, source: &str) {
@@ -54,7 +62,8 @@ fn eval(env: EnvRef, source: &str) {
         Err(error) => return error.report_rich(source),
     };
 
-    let ast = parser::parse_expr(&tokens).map(ReplMode::from)
+    let ast = parser::parse_expr(&tokens)
+        .map(ReplMode::from)
         .or_else(|_| parser::parse(&tokens).map(ReplMode::from));
 
     let ast = match ast {
