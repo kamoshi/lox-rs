@@ -20,6 +20,7 @@ pub enum Expr {
     Call(Box<Expr>, Vec<Expr>),
     Lambda(Vec<Ident>, Vec<Stmt>),
     Array(Vec<Expr>),
+    Tuple(Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]

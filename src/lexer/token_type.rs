@@ -6,11 +6,9 @@ pub enum TokenType {
 
     // Single-character tokens
     ParenL, ParenR, BraceL, BraceR, SquareL, SquareR,
-    Comma, Dot, Semicolon, Slash, Star,
+    Comma, Dot, Semicolon,
 
     // One or two character tokens
-    Bang, BangEqual,
-    Equal, EqualEqual,
     Op(String),
 
     // Literals
@@ -20,8 +18,6 @@ pub enum TokenType {
     And, Class, Else, False, Fun, For, If, Nil, Or,
     Return, Super, This, True, Var, While,
     Typeclass, Instance, Variant,
-
-    Infixr, Infixl,
 
     Eof,
 }
@@ -38,19 +34,7 @@ impl Display for TokenType {
             SquareR         => "square-r".into(),
             Comma           => "comma".into(),
             Dot             => "dot".into(),
-            Minus           => "minus".into(),
-            Plus            => "plus".into(),
             Semicolon       => "semicolon".into(),
-            Slash           => "slash".into(),
-            Star            => "star".into(),
-            Bang            => "bang".into(),
-            BangEqual       => "bang-equal".into(),
-            Equal           => "equal".into(),
-            EqualEqual      => "equal-equal".into(),
-            Greater         => "greater".into(),
-            GreaterEqual    => "greater-equal".into(),
-            Less            => "less".into(),
-            LessEqual       => "less-equal".into(),
             Ident(ident)    => format!("ident <{ident}>").into(),
             Str(str)        => format!("str <{str}>").into(),
             Num(num)        => format!("num <{num}>").into(),
@@ -75,8 +59,6 @@ impl Display for TokenType {
             Variant         => "variant".into(),
 
             Op(op) => format!("op <{op}>").into(),
-            Infixl => "infixl".into(),
-            Infixr => "infixr".into(),
         };
 
         write!(f, "{str}")

@@ -37,7 +37,7 @@ use super::error::{Error, ErrorType};
 // call         → primary ( "(" arguments? ")" )* ;
 // arguments    → expression ( "," expression )* ;
 //
-// primary      → NUMBER | STRING | "true" | "false" | "nil"
+// primary      → NUMBER | STRING | "true" | "false" | "nil" | "()"
 //              | "(" expression ")"
 //              | lambda
 //              | IDENTIFIER ;
@@ -130,8 +130,8 @@ fn decl_var(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     let ident = consume_ident(tokens, ptr)?;
     ptr += 1;           // 1 = ident
 
-    let expr = match tokens.get(ptr).map(|t| &t.ttype) {
-        Some(TokenType::Equal) => {
+    let expr = match tokens.get(ptr) {
+        Some(Token { ttype: TokenType::Op(ref op), .. }) if op == "=" => {
             ptr += 1;       // 1 = =
 
             let (n, expr) = expression(&tokens[ptr..])?;
@@ -397,7 +397,7 @@ fn primary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
         TT::False       => (1, Box::new(Expr::Literal(False))),
         TT::Nil         => (1, Box::new(Expr::Literal(Nil))),
         TT::Fun         => expr_lambda(tokens)?,
-        TT::ParenL      => expr_group(tokens)?,
+        TT::ParenL      => expr_parenthesized(tokens)?,
         TT::SquareL     => expr_array(tokens)?,
         tt => return Err(Error {
             ttype: ErrorType::InvalidToken(tt.to_owned()),
@@ -410,11 +410,45 @@ fn primary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((consumed, variant))
 }
 
-fn expr_group(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_parenthesized(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;        // 1 = (
+
+    if let Some(Token { ttype: TokenType::ParenR, .. }) = tokens.get(ptr) {
+        return Ok((2, Box::new(Expr::Literal(Literal::Nil))))
+    }
 
     let (n, expr) = expression(&tokens[ptr..])?;
     ptr += n;               // n = expr
+
+    if let Some(Token { ttype: TokenType::Comma, .. }) = tokens.get(ptr) {
+        ptr += 1;
+        let mut elements = vec![*expr];
+
+        if let Some(Token { ttype: TokenType::ParenR, .. }) = tokens.get(ptr) {
+            ptr += 1;
+            return Ok((ptr, Box::new(Expr::Tuple(elements))))
+        }
+
+        // Parse subsequent expressions, separated by commas
+        while let Some(_) = tokens.get(ptr) {
+            let (n, next_expr) = expression(&tokens[ptr..])?;
+            elements.push(*next_expr);
+            ptr += n;
+
+            // If there's a comma, continue to the next expression
+            if let Some(Token { ttype: TokenType::Comma, .. }) = tokens.get(ptr) {
+                ptr += 1;
+            } else {
+                break;
+            }
+        }
+
+        // Expect a closing ')'
+        consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
+        ptr += 1;
+
+        return Ok((ptr, Box::new(Expr::Tuple(elements))));
+    }
 
     consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
     ptr += 1;               // 1 = )
