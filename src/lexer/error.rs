@@ -4,7 +4,6 @@ use crate::error::LoxError;
 
 
 pub enum ErrorType {
-    InvalidCharacter(char),
     UnterminatedString,
     MalformedNumber,
 }
@@ -22,7 +21,6 @@ impl LoxError for Error {
 
         use ErrorType::*;
         let message: Cow<str> = match self.ttype {
-            InvalidCharacter(char)  => format!("Invalid character '{char}'").into(),
             UnterminatedString      => "Unterminated string".into(),
             MalformedNumber         => "Couldn't parse number".into(),
         };

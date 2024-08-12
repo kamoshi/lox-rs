@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::parser::ast::{Stmt, Expr, Literal, OpUnary, OpBinary, Ident, OpLogic};
+use crate::parser::ast::{Stmt, Expr, Literal, Ident};
 use super::types::{LoxType, LoxFn};
 use super::env::{Env, EnvRef};
 use super::error::ErrorType;
@@ -97,7 +97,6 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Grouping(expr)        => eval_expr_grouping(env, expr),
         Expr::Variable(ident)       => eval_expr_variable(env, ident),
         Expr::Assign(ident, expr)   => eval_expr_assign(env, ident, expr),
-        Expr::Logic(l, op, r)       => eval_expr_logic(env, l, op, r),
         Expr::Call(callee, args)    => eval_expr_call(env, callee, args),
         Expr::Lambda(ident, block)  => eval_expr_lambda(env, ident, block),
         Expr::Array(exprs)          => eval_expr_array(env, exprs),
@@ -134,16 +133,17 @@ fn eval_expr_call(env: EnvRef, callee: &Expr, args: &[Expr]) -> Result<LoxType, 
     }
 }
 
-fn eval_expr_logic(env: EnvRef, l: &Expr, op: &OpLogic, r: &Expr) -> Result<LoxType, ErrorType> {
-    let l = eval_expr(env.clone(), l)?;
-
-    match (l.is_truthy(), op) {
-        (true, OpLogic::Or)     => Ok(l),
-        (false, OpLogic::Or)    => Ok(eval_expr(env, r)?),
-        (true, OpLogic::And)    => Ok(eval_expr(env, r)?),
-        (false, OpLogic::And)   => Ok(l),
-    }
-}
+// fn eval_expr_logic(env: EnvRef, l: &Expr, op: &str, r: &Expr) -> Result<LoxType, ErrorType> {
+//     let l = eval_expr(env.clone(), l)?;
+//
+//     match (l.is_truthy(), op) {
+//         (true, "||")     => Ok(l),
+//         (false, "||")    => Ok(eval_expr(env, r)?),
+//         (true, "&&")     => Ok(eval_expr(env, r)?),
+//         (false, "&&")    => Ok(l),
+//         _ => Err(ErrorType::TypeMismatch("Missing operator")),
+//     }
+// }
 
 fn eval_expr_variable(env: EnvRef, ident: &Ident) -> Result<LoxType, ErrorType> {
     env.borrow().get(&ident.0)
@@ -167,13 +167,13 @@ fn eval_expr_literal(literal: &Literal) -> LoxType {
     }
 }
 
-fn eval_expr_unary(env: EnvRef, op: &OpUnary, expr: &Box<Expr>) -> Result<LoxType, ErrorType> {
+fn eval_expr_unary(env: EnvRef, op: &str, expr: &Box<Expr>) -> Result<LoxType, ErrorType> {
     let value = eval_expr(env, expr)?;
 
     use LoxType::*;
     match op {
-        OpUnary::Not => Ok(LoxType::Boolean(!value.is_truthy())),
-        OpUnary::Neg => match value {
+        "!" => Ok(LoxType::Boolean(!value.is_truthy())),
+        "-" => match value {
             Nil         => Err(ErrorType::TypeMismatch("Can't negate a nil value")),
             Boolean(_)  => Err(ErrorType::TypeMismatch("Can't negate a boolean value")),
             Number(f)   => Ok(Number(-f)),
@@ -181,57 +181,58 @@ fn eval_expr_unary(env: EnvRef, op: &OpUnary, expr: &Box<Expr>) -> Result<LoxTyp
             Callable(_) => Err(ErrorType::TypeMismatch("Can't negate a function value")),
             Array(_)    => Err(ErrorType::TypeMismatch("Can't negate a function value")),
         },
+        _ => Err(ErrorType::TypeMismatch("Missing operator")),
     }
 }
 
-fn eval_expr_binary(env: EnvRef, l: &Box<Expr>, op: &OpBinary, r: &Box<Expr>) -> Result<LoxType, ErrorType> {
+fn eval_expr_binary(env: EnvRef, l: &Box<Expr>, op: &str, r: &Box<Expr>) -> Result<LoxType, ErrorType> {
     let l = eval_expr(env.clone(), l)?;
     let r = eval_expr(env.clone(), r)?;
 
-    use OpBinary::*;
     use LoxType::*;
     match op {
-        Equal => match (l, r) {
+        "==" => match (l, r) {
             (Nil, Nil)  => Ok(Boolean(true)),
             (l, r)      => Ok(Boolean(l == r)),
         },
-        NotEqual => match (l, r) {
+        "!=" => match (l, r) {
             (Nil, Nil)  => Ok(Boolean(false)),
             (l, r)      => Ok(Boolean(l != r)),
         },
-        Less => match (l, r) {
+        "<" => match (l, r) {
             (Number(l), Number(r)) => Ok(Boolean(l < r)),
             _ => Err(ErrorType::TypeMismatch("Can't compare non numbers")),
         },
-        LessEqual => match (l, r) {
+        "<=" => match (l, r) {
             (Number(l), Number(r)) => Ok(Boolean(l <= r)),
             _ => Err(ErrorType::TypeMismatch("Can't compare non numbers")),
         },
-        Greater => match (l, r) {
+        ">" => match (l, r) {
             (Number(l), Number(r)) => Ok(Boolean(l > r)),
             _ => Err(ErrorType::TypeMismatch("Can't compare non numbers")),
         },
-        GreaterEqual => match (l, r) {
+        ">=" => match (l, r) {
             (Number(l), Number(r)) => Ok(Boolean(l >= r)),
             _ => Err(ErrorType::TypeMismatch("Can't compare non numbers")),
         },
-        Add => match (l, r) {
+        "+" => match (l, r) {
             (Number(l), Number(r)) => Ok(Number(l + r)),
             (String(l), String(r)) => Ok(String(format!("{l}{r}"))),
             _ => Err(ErrorType::TypeMismatch("Can only add two numbers or two strings")),
         },
-        Sub => match (l, r) {
+        "-" => match (l, r) {
             (Number(l), Number(r)) => Ok(Number(l - r)),
             _ => Err(ErrorType::TypeMismatch("Can't sub non numbers")),
         },
-        Mul => match (l, r) {
+        "*" => match (l, r) {
             (Number(l), Number(r)) => Ok(Number(l * r)),
             _ => Err(ErrorType::TypeMismatch("Can't mul non numbers")),
         },
-        Div => match (l, r) {
+        "/" => match (l, r) {
             (Number(l), Number(r)) => Ok(Number(l / r)),
             _ => Err(ErrorType::TypeMismatch("Can't div non numbers")),
         },
+        _ => Err(ErrorType::TypeMismatch("Missing operator")),
     }
 }
 

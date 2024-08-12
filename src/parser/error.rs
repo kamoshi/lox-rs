@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::lexer::token_type::TokenType;
 use crate::error::LoxError;
 
-
+#[derive(Debug)]
 pub enum ErrorType {
     MissingParenR,
     MissingParenL,
@@ -15,6 +15,7 @@ pub enum ErrorType {
     MissingBrace,
 }
 
+#[derive(Debug)]
 pub struct Error {
     pub ttype: ErrorType,
     pub line: usize,

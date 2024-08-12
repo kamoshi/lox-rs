@@ -13,38 +13,13 @@ pub enum Stmt {
 pub enum Expr {
     Literal(Literal),
     Assign(Ident, Box<Expr>),
-    Unary(OpUnary, Box<Expr>),
-    Binary(Box<Expr>, OpBinary, Box<Expr>),
+    Unary(String, Box<Expr>),
+    Binary(Box<Expr>, String, Box<Expr>),
     Grouping(Box<Expr>),
     Variable(Ident),
-    Logic(Box<Expr>, OpLogic, Box<Expr>),
     Call(Box<Expr>, Vec<Expr>),
     Lambda(Vec<Ident>, Vec<Stmt>),
     Array(Vec<Expr>),
-}
-
-#[derive(Debug, Clone)]
-pub enum OpLogic {
-    And, Or
-}
-
-#[derive(Debug, Clone)]
-pub enum OpUnary {
-    Not, Neg
-}
-
-#[derive(Debug, Clone)]
-pub enum OpBinary {
-    Equal,
-    NotEqual,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual,
-    Add,
-    Sub,
-    Mul,
-    Div,
 }
 
 #[derive(Debug, Clone)]

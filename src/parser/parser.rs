@@ -1,5 +1,5 @@
 use crate::lexer::{token::Token, token_type::TokenType};
-use super::ast::{Stmt, Expr, OpBinary, Literal, OpUnary, Ident, OpLogic};
+use super::ast::{Stmt, Expr, Literal, Ident};
 use super::error::{Error, ErrorType};
 
 
@@ -31,15 +31,9 @@ use super::error::{Error, ErrorType};
 //
 // expression   → assignment ;
 // assignment   → IDENTIFIER "=" assignment
-//              | logicOr ;
-// logicOr      → logicAnd ( "or" logicAnd )* ;
-// logicAnd     → equality ( "and" equality )* ;
-// equality     → comparison ( ( "!=" | "==" ) comparison )* ;
-// comparison   → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-// term         → factor ( ( "-" | "+" ) factor )* ;
-// factor       → unary ( ( "/" | "*" ) unary )* ;
-// unary        → ( "!" | "-" ) unary
-//              | call ;
+//              | exprPratt ;
+// exprPratt    → call
+//              | PRATT ;
 // call         → primary ( "(" arguments? ")" )* ;
 // arguments    → expression ( "," expression )* ;
 //
@@ -326,11 +320,11 @@ fn expression(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 fn assignment(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
 
-    let (n, expr) = or(tokens)?;
+    let (n, expr) = pratt(tokens, 0)?;
     ptr += n;           // n = expr
 
     match tokens.get(n).map(|t| &t.ttype) {
-        Some(TokenType::Equal) => {
+        Some(TokenType::Op(ref op)) if op == "="  => {
             let (c_next, next) = assignment(&tokens[n + 1..])?;
 
             match *expr {
@@ -347,156 +341,6 @@ fn assignment(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
             }
         },
         _ => Ok((ptr, expr)),
-    }
-}
-
-fn or(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    let mut ptr = 0;
-
-    let (n, mut expr) = and(tokens)?;
-    ptr += n;           // n = expr
-
-    while matches(tokens.get(ptr), &[TokenType::Or]) {
-        ptr += 1;       // 1 =* or
-        let (n, r) = and(&tokens[ptr..])?;
-        ptr += n;       // n =* expr
-        expr = Box::new(Expr::Logic(expr, OpLogic::Or, r));
-    };
-
-    Ok((ptr, expr))
-}
-
-fn and(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    let mut ptr = 0;
-
-    let (n, mut expr) = equality(tokens)?;
-    ptr += n;           // n = expr
-
-    while matches(tokens.get(ptr), &[TokenType::And]) {
-        ptr += 1;       // 1 =* and
-        let (n, r) = equality(&tokens[ptr..])?;
-        ptr += n;       // n =* expr
-        expr = Box::new(Expr::Logic(expr, OpLogic::And, r));
-    };
-
-    Ok((ptr, expr))
-}
-
-fn equality(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    let mut ptr = 0;
-
-    let (n, mut expr) = comparison(tokens)?;
-    ptr += n;           // n = expr
-
-    while matches(tokens.get(ptr), &[TokenType::BangEqual, TokenType::EqualEqual]) {
-        let op = match tokens[ptr].ttype {
-            TokenType::BangEqual    => OpBinary::NotEqual,
-            TokenType::EqualEqual   => OpBinary::Equal,
-            _ => unreachable!(),
-        };
-        ptr += 1;       // 1 = op
-
-        let (n, next) = comparison(&tokens[ptr..])?;
-        ptr += n;       // n = expr
-
-        expr = Box::new(Expr::Binary(expr, op, next))
-    }
-
-    Ok((ptr, expr))
-}
-
-
-fn comparison(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    let mut ptr = 0;
-
-    let (n, mut expr) = term(tokens)?;
-    ptr += n;           // n = expr
-
-    let signs = &[TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual];
-    while matches(tokens.get(ptr), signs) {
-        let op = match tokens[ptr].ttype {
-            TokenType::Greater      => OpBinary::Greater,
-            TokenType::GreaterEqual => OpBinary::GreaterEqual,
-            TokenType::Less         => OpBinary::Less,
-            TokenType::LessEqual    => OpBinary::LessEqual,
-            _ => unreachable!(),
-        };
-        ptr += 1;       // 1 = op
-
-        let (n, next) = term(&tokens[ptr..])?;
-        ptr += n;       // n = expr
-
-        expr = Box::new(Expr::Binary(expr, op, next))
-    }
-
-    Ok((ptr, expr))
-}
-
-fn term(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    let mut ptr = 0;
-
-    let (n, mut expr) = factor(tokens)?;
-    ptr += n;           // n = expr
-
-    while matches(tokens.get(ptr), &[TokenType::Minus, TokenType::Plus]) {
-        let op = match tokens[ptr].ttype {
-            TokenType::Minus    => OpBinary::Sub,
-            TokenType::Plus     => OpBinary::Add,
-            _ => unreachable!(),
-        };
-        ptr += 1;       // 1 = op
-
-        let (n, next) = factor(&tokens[ptr..])?;
-        ptr += n;       // n = expr
-
-        expr = Box::new(Expr::Binary(expr, op, next))
-    }
-
-    Ok((ptr, expr))
-}
-
-fn factor(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    let mut ptr = 0;
-
-    let (n, mut expr) = unary(tokens)?;
-    ptr += n;           // n = expr
-
-    while matches(tokens.get(ptr), &[TokenType::Slash, TokenType::Star]) {
-        let op = match tokens[ptr].ttype {
-            TokenType::Slash    => OpBinary::Div,
-            TokenType::Star     => OpBinary::Mul,
-            _ => unreachable!(),
-        };
-        ptr += 1;       // 1 = op
-
-        let (n, next) = unary(&tokens[ptr..])?;
-        ptr += n;       // n = expr
-
-        expr = Box::new(Expr::Binary(expr, op, next))
-    }
-
-    Ok((ptr, expr))
-}
-
-fn unary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    let mut ptr = 0;
-
-    match matches(tokens.get(ptr), &[TokenType::Bang, TokenType::Minus]) {
-        true => {
-            let op = match tokens[ptr].ttype {
-                TokenType::Bang     => OpUnary::Not,
-                TokenType::Minus    => OpUnary::Neg,
-                _ => unreachable!()
-            };
-            ptr += 1;   // 1 = op
-
-            let (n, expr) = unary(&tokens[1..])?;
-            ptr += n;   // n = expr
-
-            let expr = Box::new(Expr::Unary(op, expr));
-            Ok((ptr, expr))
-        },
-        false => call(tokens),
     }
 }
 
@@ -647,4 +491,63 @@ fn consume_ident(
             length: 1,
         }),
     }
+}
+
+// logicOr      → logicAnd ( "||" logicAnd )* ;
+// logicAnd     → equality ( "&&" equality )* ;
+// equality     → comparison ( ( "!=" | "==" ) comparison )* ;
+// comparison   → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+// term         → factor ( ( "-" | "+" ) factor )* ;
+// factor       → unary ( ( "/" | "*" ) unary )* ;
+// unary        → ( "!" | "-" ) unary
+
+fn precedence(str: &str, unary: bool) -> (i32, i32) {
+    if unary { return (20, 20) };
+    match str {
+        "||" => (1, 1),
+        "&&" => (2, 2),
+        "!=" | "==" => (3, 3),
+        ">" | ">=" | "<" | "<=" => (4, 4),
+        "-" | "+" => (5, 5),
+        "/" | "*" => (10, 10),
+        _ => (0, 0),
+    }
+}
+
+fn pratt(tokens: &[Token], min_p: i32) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 0;
+
+    let mut expr_l = match tokens[ptr] {
+        Token { ttype: TokenType::Op(ref op), .. } => {
+            let (_, bp_r) = precedence(op, true);
+            ptr += 1;
+
+            let (n, expr_r) = pratt(&tokens[ptr..], bp_r)?;
+            ptr += n;
+
+            Box::new(Expr::Unary(op.into(), expr_r))
+        }
+        _ => {
+            let (n, expr_l) = call(tokens)?;
+            ptr += n;
+            expr_l
+        },
+    };
+
+    while let Some(TokenType::Op(ref op)) = tokens.get(ptr).map(|t| &t.ttype) {
+        let (bp_l, bp_r) = precedence(op, false);
+
+        if bp_l < min_p {
+            break;
+        }
+
+        ptr += 1;
+
+        let (n, expr_r) = pratt(&tokens[ptr..], bp_r + 1)?;
+        ptr += n;
+
+        expr_l = Box::new(Expr::Binary(expr_l, op.into(), expr_r));
+    };
+
+    Ok((ptr, expr_l))
 }

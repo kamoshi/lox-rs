@@ -15,6 +15,14 @@ mod repl;
 struct Args {
     /// Optional script file to run
     script: Option<String>,
+
+    /// Run lexer in repl
+    #[arg(long)]
+    lex: bool,
+
+    /// Run parser in repl
+    #[arg(long)]
+    parse: bool,
 }
 
 fn main() {
@@ -23,7 +31,7 @@ fn main() {
     match args.script {
         Some(name) => run_file(&name),
         None => {
-            repl::run_repl();
+            repl::run_repl(args.lex, args.parse);
         }
     }
 }

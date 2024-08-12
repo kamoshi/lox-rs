@@ -6,13 +6,12 @@ pub enum TokenType {
 
     // Single-character tokens
     ParenL, ParenR, BraceL, BraceR, SquareL, SquareR,
-    Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
+    Comma, Dot, Semicolon, Slash, Star,
 
     // One or two character tokens
     Bang, BangEqual,
     Equal, EqualEqual,
-    Greater, GreaterEqual,
-    Less, LessEqual,
+    Op(String),
 
     // Literals
     Ident(String), Str(String), Num(f64),
@@ -21,6 +20,8 @@ pub enum TokenType {
     And, Class, Else, False, Fun, For, If, Nil, Or,
     Return, Super, This, True, Var, While,
     Typeclass, Instance, Variant,
+
+    Infixr, Infixl,
 
     Eof,
 }
@@ -72,6 +73,10 @@ impl Display for TokenType {
             Typeclass       => "typeclass".into(),
             Instance        => "instance".into(),
             Variant         => "variant".into(),
+
+            Op(op) => format!("op <{op}>").into(),
+            Infixl => "infixl".into(),
+            Infixr => "infixr".into(),
         };
 
         write!(f, "{str}")

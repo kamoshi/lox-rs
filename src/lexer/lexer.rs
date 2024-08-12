@@ -40,7 +40,7 @@ fn read_token(
     let next = chars.get(1);
     match curr {
         // single char
-        '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' | '-' | '+' | ';' | '*' => {
+        '(' | ')' | '{' | '}' | '[' | ']' | ',' | '.' | ';' => {
             let ttype = match curr {
                 '(' => TokenType::ParenL,
                 ')' => TokenType::ParenR,
@@ -50,38 +50,18 @@ fn read_token(
                 ']' => TokenType::SquareR,
                 ',' => TokenType::Comma,
                 '.' => TokenType::Dot,
-                '-' => TokenType::Minus,
-                '+' => TokenType::Plus,
                 ';' => TokenType::Semicolon,
-                '*' => TokenType::Star,
                 _ => unreachable!(),
             };
             Ok((1, Some(ttype)))
         }
-        // comparison
-        '!' => match next {
-            Some('=') => Ok((2, Some(TokenType::BangEqual))),
-            _ => Ok((1, Some(TokenType::Bang))),
-        },
-        '=' => match next {
-            Some('=') => Ok((2, Some(TokenType::EqualEqual))),
-            _ => Ok((1, Some(TokenType::Equal))),
-        },
-        '<' => match next {
-            Some('=') => Ok((2, Some(TokenType::LessEqual))),
-            _ => Ok((1, Some(TokenType::Less))),
-        },
-        '>' => match next {
-            Some('=') => Ok((2, Some(TokenType::GreaterEqual))),
-            _ => Ok((1, Some(TokenType::Greater))),
-        },
         // div | comment
         '/' => match next {
             Some('/') => {
                 let consumed = chars.iter().position(|&c| c == '\n').unwrap_or(chars.len());
                 Ok((consumed, None))
             },
-            _ => Ok((1, Some(TokenType::Slash))),
+            _ => Ok((1, Some(TokenType::Op("/".into())))),
         }
         // whitespace
         ' ' | '\r' | '\t' => Ok((1, None)),
@@ -148,7 +128,14 @@ fn read_token(
             };
             Ok((consumed, Some(token_type)))
         },
-        // other
-        _ => Err(ErrorType::InvalidCharacter(curr)),
+        _ => {
+            let consumed = chars.iter()
+                .position(|&c| !c.is_ascii_punctuation() || c == '_')
+                .unwrap_or(chars.len());
+
+            let text = String::from_iter(&chars[..consumed]);
+
+            Ok((consumed, Some(TokenType::Op(text))))
+        },
     }
 }

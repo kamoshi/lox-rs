@@ -26,7 +26,7 @@ impl From<ast::Expr> for ReplMode {
     }
 }
 
-pub(crate) fn run_repl() {
+pub(crate) fn run_repl(lex: bool, parse: bool) {
     let env = Env::new_ref();
     interpreter::native::populate(env.clone());
 
@@ -35,7 +35,16 @@ pub(crate) fn run_repl() {
     loop {
         match rl.readline("> ") {
             Ok(line) => {
-                eval(env.clone(), &line);
+                if lex {
+                    let _ = lexer::tokenize(&line).map(|x| println!("{x:?}"));
+                } else if parse {
+                    match lexer::tokenize(&line).map(|tokens| parser::parse_expr(&tokens)) {
+                        Ok(Ok(res)) => println!("{:#?}", res),
+                        _ => todo!(),
+                    };
+                } else {
+                    eval(env.clone(), &line);
+                }
                 rl.add_history_entry(&line).unwrap();
                 println!();
             }
