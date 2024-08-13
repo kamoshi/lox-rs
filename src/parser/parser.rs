@@ -16,14 +16,12 @@ use super::error::{Error, ErrorType};
 // parameters   → IDENTIFIER ( "," IDENTIFIER )* ;
 //
 // statement    → block
-//              | stmtIf
 //              | stmtWhile
 //              | stmtFor
 //              | stmtReturn
 //              | stmtExpr ;
 //
 // block        → "{" declaration* "}" ;
-// stmtIf       → "if" "(" expression ")" statement ( "else" statement )? ;
 // stmtWhile    → "while" "(" expression ")" statement;
 // stmtFor      → "for" "(" ( declVar | stmtExpr | ";" ) expression? ";" expression? ")" statement ;
 // stmtreturn   → "return" expression? ";" ;
@@ -31,7 +29,10 @@ use super::error::{Error, ErrorType};
 //
 // expression   → assignment ;
 // assignment   → IDENTIFIER "=" assignment
+//              | exprIfElse
 //              | exprPratt ;
+//
+// exprIfElse   → "if" "(" expression ")" statement ( "else" statement )?
 // exprPratt    → call
 //              | PRATT ;
 //
@@ -159,7 +160,6 @@ fn statement(
             let (n, block) = block(tokens)?;
             Ok((n, Stmt::Block(block)))
         },
-        Some(TokenType::If)     => stmt_if(tokens),
         Some(TokenType::While)  => stmt_while(tokens),
         Some(TokenType::For)    => stmt_for(tokens),
         Some(TokenType::Return) => stmt_return(tokens),
@@ -200,31 +200,6 @@ fn block(tokens: &[Token]) -> Result<(usize, Vec<Stmt>), Error> {
     ptr += 1;           // 1 = }
 
     Ok((ptr, block))
-}
-
-fn stmt_if(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-    let mut ptr = 1;    // 1 = if
-    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
-    ptr += 1;           // 1 = (
-    let (n, cond) = expression(&tokens[ptr..])?;
-    ptr += n;           // n = expr
-    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
-    ptr += 1;           // 1 = )
-
-    let (n, branch_t) = statement(&tokens[ptr..])?;
-    ptr += n;           // n = true branch
-
-    let branch_f = match matches(tokens.get(ptr), &[TokenType::Else]) {
-        true => {
-            ptr += 1;   // 1 =? else
-            let (n, branch_f) = statement(&tokens[ptr..])?;
-            ptr += n;   // n =? false branch
-            Some(branch_f.into())
-        },
-        false => None,
-    };
-
-    Ok((ptr, Stmt::If(cond, branch_t.into(), branch_f)))
 }
 
 fn stmt_while(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
@@ -317,7 +292,35 @@ fn stmt_expr(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
 
 
 fn expression(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    assignment(tokens)
+    match tokens.first().map(|t| &t.ttype) {
+        Some(TokenType::If)     => expr_if(tokens),
+        _ => assignment(tokens),
+    }
+}
+
+fn expr_if(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 1;    // 1 = if
+    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
+    ptr += 1;           // 1 = (
+    let (n, cond) = expression(&tokens[ptr..])?;
+    ptr += n;           // n = expr
+    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
+    ptr += 1;           // 1 = )
+
+    let (n, branch_t) = expression(&tokens[ptr..])?;
+    ptr += n;           // n = true branch
+
+    let branch_f = match matches(tokens.get(ptr), &[TokenType::Else]) {
+        true => {
+            ptr += 1;   // 1 =? else
+            let (n, branch_f) = expression(&tokens[ptr..])?;
+            ptr += n;   // n =? false branch
+            Some(branch_f)
+        },
+        false => None,
+    };
+
+    Ok((ptr, Expr::If(cond, branch_t, branch_f).into()))
 }
 
 fn assignment(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {

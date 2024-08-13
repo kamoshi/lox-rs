@@ -3,7 +3,6 @@ pub enum Stmt {
     Block(Vec<Stmt>),
     Var(Ident, Option<Box<Expr>>),
     Expression(Box<Expr>),
-    If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
     While(Box<Expr>, Box<Stmt>),
     // Function(Ident, Vec<Ident>, Vec<Stmt>),
     Return(Option<Box<Expr>>),
@@ -21,6 +20,7 @@ pub enum Expr {
     Lambda(Ident, Box<Expr>),
     Array(Vec<Expr>),
     Tuple(Vec<Expr>),
+    If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
 }
 
 #[derive(Debug, Clone)]

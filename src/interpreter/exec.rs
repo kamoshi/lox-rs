@@ -28,7 +28,6 @@ pub fn exec(g_env: Option<EnvRef>, stmts: &[Stmt]) -> Result<(), ErrorType> {
 fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
     match stmt {
         Stmt::Var(ident, expr) => exec_stmt_var(env, ident, expr)?,
-        Stmt::If(cond, t, f) => exec_stmt_if(env, cond, t, f)?,
         Stmt::Expression(expr) => exec_stmt_expr(env, expr)?,
         Stmt::Block(stmts) => exec(Some(Env::wrap(env)), stmts)?,
         Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
@@ -69,19 +68,18 @@ fn exec_stmt_while(env: EnvRef, cond: &Expr, stmt: &Stmt) -> Result<(), ErrorTyp
     Ok(())
 }
 
-fn exec_stmt_if(
+fn exec_expr_if(
     env: EnvRef,
     cond: &Expr,
-    t: &Stmt,
-    f: &Option<Box<Stmt>>,
-) -> Result<(), ErrorType> {
+    t: &Expr,
+    f: &Option<Box<Expr>>,
+) -> Result<LoxType, ErrorType> {
     let cond = eval_expr(env.clone(), cond)?;
 
-    use LoxType::*;
-    match (cond, f) {
-        (Boolean(true), _) => exec_stmt(env, t),
-        (_, Some(stmt)) => exec_stmt(env, &stmt),
-        _ => Ok(()),
+    match (cond.is_truthy(), f) {
+        (true, _) => eval_expr(env, t),
+        (_, Some(e)) => eval_expr(env, e),
+        _ => Ok(LoxType::Nil),
     }
 }
 
@@ -113,6 +111,7 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Lambda(ident, block) => eval_lambda(env, ident, block),
         Expr::Array(exprs) => eval_expr_array(env, exprs),
         Expr::Tuple(exprs) => eval_expr_tuple(env, exprs),
+        Expr::If(cond, t, f) => exec_expr_if(env, cond, t, f),
     }
 }
 
