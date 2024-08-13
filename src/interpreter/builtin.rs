@@ -86,3 +86,17 @@ pub(crate) fn math_div(_: EnvRef, l: LoxType, r: LoxType) -> Result<LoxType, Err
         _ => Err(ErrorType::TypeMismatch("Can't divide non numbers")),
     }
 }
+
+pub(crate) fn apply(_: EnvRef, l: LoxType, r: LoxType) -> Result<LoxType, ErrorType> {
+    match l {
+        LoxType::Callable(f) => f.call(&r),
+        _ => Err(ErrorType::TypeMismatch("Not callable")),
+    }
+}
+
+pub(crate) fn pipe(_: EnvRef, l: LoxType, r: LoxType) -> Result<LoxType, ErrorType> {
+    match r {
+        LoxType::Callable(f) => f.call(&l),
+        _ => Err(ErrorType::TypeMismatch("Not callable")),
+    }
+}

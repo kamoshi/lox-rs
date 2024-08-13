@@ -32,7 +32,7 @@ fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
         Stmt::Expression(expr) => exec_stmt_expr(env, expr)?,
         Stmt::Block(stmts) => exec(Some(Env::wrap(env)), stmts)?,
         Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
-        Stmt::Function(n, p, b) => exec_stmt_func(env, n, p, b)?,
+        // Stmt::Function(n, p, b) => exec_stmt_func(env, n, p, b)?,
         Stmt::Return(expr) => exec_stmt_return(env, expr)?,
     };
     Ok(())
@@ -47,20 +47,20 @@ fn exec_stmt_return(env: EnvRef, expr: &Option<Box<Expr>>) -> Result<(), ErrorTy
     Err(ErrorType::Return(res))
 }
 
-fn exec_stmt_func(env: EnvRef, name: &Ident, params: &[Ident], body: &[Stmt]) -> Result<(), ErrorType> {
-    let mut params = params.iter().rev();
-    let last = params.next().unwrap();
-    let mut func = Expr::Lambda(vec![last.clone()], body.to_vec());
-
-    for Ident(next) in params {
-        func = Expr::Lambda(vec![Ident(next.clone())], vec![Stmt::Return(Some(func.into()))])
-    }
-
-    env.borrow_mut()
-        .define(&name.0, &eval_expr(env.clone(), &func)?);
-
-    Ok(())
-}
+// fn exec_stmt_func(env: EnvRef, name: &Ident, params: &[Ident], body: &[Stmt]) -> Result<(), ErrorType> {
+//     let mut params = params.iter().rev();
+//     let last = params.next().unwrap();
+//     let mut func = Expr::Lambda(vec![last.clone()], body.to_vec());
+//
+//     for Ident(next) in params {
+//         func = Expr::Lambda(vec![Ident(next.clone())], vec![Stmt::Return(Some(func.into()))])
+//     }
+//
+//     env.borrow_mut()
+//         .define(&name.0, &eval_expr(env.clone(), &func)?);
+//
+//     Ok(())
+// }
 
 fn exec_stmt_while(env: EnvRef, cond: &Expr, stmt: &Stmt) -> Result<(), ErrorType> {
     while eval_expr(env.clone(), cond)?.is_truthy() {
@@ -110,7 +110,7 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Variable(ident) => eval_expr_variable(env, ident),
         Expr::Assign(ident, expr) => eval_expr_assign(env, ident, expr),
         Expr::Call(callee, arg) => eval_expr_call(env, callee, arg),
-        Expr::Lambda(ident, block) => eval_expr_lambda(env, ident, block),
+        Expr::Lambda(ident, block) => eval_lambda(env, ident, block),
         Expr::Array(exprs) => eval_expr_array(env, exprs),
         Expr::Tuple(exprs) => eval_expr_tuple(env, exprs),
     }
@@ -132,11 +132,8 @@ fn eval_expr_array(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
     Ok(LoxType::Array(arr))
 }
 
-fn eval_expr_lambda(env: EnvRef, ident: &[Ident], block: &[Stmt]) -> Result<LoxType, ErrorType> {
-    let params: Vec<_> = ident.iter().map(|i| i.0.clone()).collect();
-    Ok(LoxType::Callable(Rc::new(LoxFn::new(
-        params[0].clone(),
-        block.to_vec(),
+fn eval_lambda(env: EnvRef, param: &Ident, body: &Expr) -> Result<LoxType, ErrorType> {
+    Ok(LoxType::Callable(Rc::new(LoxFn::new(param.0.clone(), body.clone().into(),
         env.clone(),
     ))))
 }
@@ -214,6 +211,8 @@ fn eval_expr_binary(env: EnvRef, l: &Expr, op: &str, r: &Expr) -> Result<LoxType
         "/" => builtin::math_div(env, l, r),
         "||" => builtin::logic_or(env, l, r),
         "&&" => builtin::logic_and(env, l, r),
+        "$" => builtin::apply(env, l, r),
+        "|>" => builtin::pipe(env, l, r),
         _ => Err(ErrorType::TypeMismatch("Missing operator")),
     }
 }

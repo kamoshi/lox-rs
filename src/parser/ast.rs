@@ -5,7 +5,7 @@ pub enum Stmt {
     Expression(Box<Expr>),
     If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
     While(Box<Expr>, Box<Stmt>),
-    Function(Ident, Vec<Ident>, Vec<Stmt>),
+    // Function(Ident, Vec<Ident>, Vec<Stmt>),
     Return(Option<Box<Expr>>),
 }
 
@@ -18,7 +18,7 @@ pub enum Expr {
     Grouping(Box<Expr>),
     Variable(Ident),
     Call(Box<Expr>, Box<Expr>),
-    Lambda(Vec<Ident>, Vec<Stmt>),
+    Lambda(Ident, Box<Expr>),
     Array(Vec<Expr>),
     Tuple(Vec<Expr>),
 }

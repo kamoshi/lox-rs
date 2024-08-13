@@ -39,14 +39,15 @@ use super::error::{Error, ErrorType};
 //
 // arguments    → expression ( "," expression )* ;
 //
-// primary      → NUMBER | STRING | "true" | "false" | "nil" | "()"
-//              | "(" expression ")"
+// primary      → NUMBER | STRING | "nil"
+//              | "true" | "false"
+//              | "()" | "(" expression ")"
 //              | lambda
 //              | IDENTIFIER ;
 //
 // array        → "[" ( expression ( "," expression )* )? "]" ;
 //
-// lambda       → "fun" "(" parameters? ")" block ;
+// lambda       → "fn" ( IDENTIFIER )+ "->" expression ;
 
 
 pub fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, Error> {
@@ -77,35 +78,35 @@ pub fn parse_expr(tokens: &[Token]) -> Result<Expr, Error> {
 fn declaration(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
     match tokens.first().map(|t| &t.ttype) {
         Some(TokenType::Var) => decl_var(tokens),
-        Some(TokenType::Fun) => decl_fun(tokens),
+        // Some(TokenType::Fun) => decl_fun(tokens),
         _ => statement(tokens),
     }
 }
 
-fn decl_fun(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-    function(tokens)
-}
+// fn decl_fun(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+//     function(tokens)
+// }
 
-fn function(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-    let mut ptr = 1;    // 1 = fun
-
-    let ident = consume_ident(tokens, ptr)?;
-    ptr += 1;           // 1 = ident
-
-    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
-    ptr += 1;           // 1 = (
-
-    let (n, params) = parameters(&tokens[ptr-1..])?;
-    ptr += n;           // n = params
-
-    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
-    ptr += 1;           // 1 = )
-
-    let (n, block) = block(&tokens[ptr..])?;
-    ptr += n;           // n = block
-
-    Ok((ptr, Stmt::Function(ident, params, block)))
-}
+// fn function(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+//     let mut ptr = 1;    // 1 = fun
+//
+//     let ident = consume_ident(tokens, ptr)?;
+//     ptr += 1;           // 1 = ident
+//
+//     consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
+//     ptr += 1;           // 1 = (
+//
+//     let (n, params) = parameters(&tokens[ptr-1..])?;
+//     ptr += n;           // n = params
+//
+//     consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
+//     ptr += 1;           // 1 = )
+//
+//     let (n, block) = block(&tokens[ptr..])?;
+//     ptr += n;           // n = block
+//
+//     Ok((ptr, Stmt::Function(ident, params, block)))
+// }
 
 fn parameters(tokens: &[Token]) -> Result<(usize, Vec<Ident>), Error> {
     let mut ptr = 1;    // 1 = (
@@ -468,21 +469,34 @@ fn expr_array(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 
 
 fn expr_lambda(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    let mut ptr = 1;    // 1 = fun
+    let mut ptr = 1;        // 1 fn
+    let mut args = vec![];
 
-    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
-    ptr += 1;           // 1 = (
+    loop {
+        let expr = consume_ident(tokens, ptr)?;
+        ptr += 1;           // 1 IDENTIFIER
+        args.push(expr);
 
-    let (n, ident) = parameters(&tokens[ptr-1..])?;
-    ptr += n;           // n = ident
+        match tokens.get(ptr) {
+            Some(Token { ttype: TokenType::Op(ref op), .. }) if op == "->" => {
+                ptr += 1;   // 1 ->
+                break;
+            },
+            _ => continue,
+        }
+    }
 
-    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
-    ptr += 1;           // 1 = )
+    let (n, expr) = expression(&tokens[ptr..])?;
+    ptr += n;               // n expr
 
-    let (n, block) = block(&tokens[ptr..])?;
-    ptr += n;           // n = block
+    let mut args = args.into_iter().rev();
+    let last = args.next().expect("Lambda should have at least one argument.");
+    let func = args.fold(
+        Expr::Lambda(last, expr),
+        |acc, next| Expr::Lambda(next, acc.into())
+    );
 
-    Ok((ptr, Expr::Lambda(ident, block).into()))
+    Ok((ptr, func.into()))
 }
 
 fn matches(token: Option<&Token>, tts: &[TokenType]) -> bool {
