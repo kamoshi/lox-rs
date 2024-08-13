@@ -17,7 +17,7 @@ pub enum Expr {
     Binary(Box<Expr>, String, Box<Expr>),
     Grouping(Box<Expr>),
     Variable(Ident),
-    Call(Box<Expr>, Vec<Expr>),
+    Call(Box<Expr>, Box<Expr>),
     Lambda(Vec<Ident>, Vec<Stmt>),
     Array(Vec<Expr>),
     Tuple(Vec<Expr>),

@@ -1,24 +1,19 @@
+use super::env::EnvRef;
+use super::error::ErrorType;
+use super::types::{LoxCallable, LoxType};
 use std::fmt::Display;
 use std::rc::Rc;
-use super::env::EnvRef;
-use super::types::{LoxCallable, LoxType};
-use super::error::ErrorType;
 
-
-fn clock(_: &[LoxType]) -> Result<LoxType, ErrorType> {
+fn clock(_: &LoxType) -> Result<LoxType, ErrorType> {
     use std::time::{SystemTime, UNIX_EPOCH};
     let epoch = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-
     Ok(LoxType::Number(epoch.as_secs_f64()))
 }
 
-fn print(args: &[LoxType]) -> Result<LoxType, ErrorType> {
-    let args: Vec<_> = args.iter().map(|arg| arg.to_string()).collect();
-    println!("{}", args.join(" "));
-
+fn print(arg: &LoxType) -> Result<LoxType, ErrorType> {
+    println!("{arg}");
     Ok(LoxType::Nil)
 }
-
 
 pub enum LoxFnNative {
     Clock,
@@ -26,10 +21,10 @@ pub enum LoxFnNative {
 }
 
 impl LoxCallable for LoxFnNative {
-    fn call(&self, args: &[LoxType]) -> Result<LoxType, ErrorType> {
+    fn call(&self, arg: &LoxType) -> Result<LoxType, ErrorType> {
         match self {
-            LoxFnNative::Clock => clock(args),
-            LoxFnNative::Print => print(args),
+            LoxFnNative::Clock => clock(arg),
+            LoxFnNative::Print => print(arg),
         }
     }
 }

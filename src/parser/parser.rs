@@ -34,7 +34,9 @@ use super::error::{Error, ErrorType};
 //              | exprPratt ;
 // exprPratt    → call
 //              | PRATT ;
-// call         → primary ( "(" arguments? ")" )* ;
+//
+// call         → primary ( primary )* ;
+//
 // arguments    → expression ( "," expression )* ;
 //
 // primary      → NUMBER | STRING | "true" | "false" | "nil" | "()"
@@ -344,21 +346,17 @@ fn assignment(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     }
 }
 
+/// callable arg1 arg2 ...
 fn call(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
 
     let (n, mut expr) = primary(tokens)?;
-    ptr += n;       // n = expr
+    ptr += n;       // n callable
 
-    while matches(tokens.get(ptr), &[TokenType::ParenL]) {
-        ptr += 1;   // 1 = (
-        let (n, args) = arguments(&tokens[ptr..])?;
-        ptr += n;   // n = arguments
-        consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
-        ptr += 1;   // 1 = )
-
-        expr = Box::new(Expr::Call(expr, args));
-    };
+    while let Ok((n, arg)) = primary(&tokens[ptr..]) {
+        ptr += n;   // n arg
+        expr = Box::new(Expr::Call(expr, arg));
+    }
 
     Ok((ptr, expr))
 }

@@ -47,11 +47,17 @@ fn exec_stmt_return(env: EnvRef, expr: &Option<Box<Expr>>) -> Result<(), ErrorTy
     Err(ErrorType::Return(res))
 }
 
-fn exec_stmt_func(env: EnvRef, n: &Ident, p: &[Ident], b: &[Stmt]) -> Result<(), ErrorType> {
-    let params: Vec<_> = p.iter().map(|Ident(name)| name.to_owned()).collect();
-    let func = LoxFn::new(params, b.to_vec(), env.clone());
+fn exec_stmt_func(env: EnvRef, name: &Ident, params: &[Ident], body: &[Stmt]) -> Result<(), ErrorType> {
+    let mut params = params.iter().rev();
+    let last = params.next().unwrap();
+    let mut func = Expr::Lambda(vec![last.clone()], body.to_vec());
+
+    for Ident(next) in params {
+        func = Expr::Lambda(vec![Ident(next.clone())], vec![Stmt::Return(Some(func.into()))])
+    }
+
     env.borrow_mut()
-        .define(&n.0, &LoxType::Callable(Rc::new(func)));
+        .define(&name.0, &eval_expr(env.clone(), &func)?);
 
     Ok(())
 }
@@ -103,7 +109,7 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Grouping(expr) => eval_expr_grouping(env, expr),
         Expr::Variable(ident) => eval_expr_variable(env, ident),
         Expr::Assign(ident, expr) => eval_expr_assign(env, ident, expr),
-        Expr::Call(callee, args) => eval_expr_call(env, callee, args),
+        Expr::Call(callee, arg) => eval_expr_call(env, callee, arg),
         Expr::Lambda(ident, block) => eval_expr_lambda(env, ident, block),
         Expr::Array(exprs) => eval_expr_array(env, exprs),
         Expr::Tuple(exprs) => eval_expr_tuple(env, exprs),
@@ -129,21 +135,18 @@ fn eval_expr_array(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
 fn eval_expr_lambda(env: EnvRef, ident: &[Ident], block: &[Stmt]) -> Result<LoxType, ErrorType> {
     let params: Vec<_> = ident.iter().map(|i| i.0.clone()).collect();
     Ok(LoxType::Callable(Rc::new(LoxFn::new(
-        params,
+        params[0].clone(),
         block.to_vec(),
         env.clone(),
     ))))
 }
 
-fn eval_expr_call(env: EnvRef, callee: &Expr, args: &[Expr]) -> Result<LoxType, ErrorType> {
+fn eval_expr_call(env: EnvRef, callee: &Expr, arg: &Expr) -> Result<LoxType, ErrorType> {
     let callee = eval_expr(env.clone(), callee)?;
-    let args: Vec<_> = args
-        .iter()
-        .map(|a| eval_expr(env.clone(), a))
-        .collect::<Result<_, ErrorType>>()?;
+    let arg = eval_expr(env.clone(), arg)?;
 
     let res = match callee {
-        LoxType::Callable(c) => c.call(&args),
+        LoxType::Callable(c) => c.call(&arg),
         _ => Err(ErrorType::TypeMismatch("Can't call this value")),
     };
 
