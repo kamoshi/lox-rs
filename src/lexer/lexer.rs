@@ -119,7 +119,7 @@ fn read_token(
                 "super" => TokenType::Super,
                 "this"  => TokenType::This,
                 "true"  => TokenType::True,
-                "var"   => TokenType::Var,
+                "let"   => TokenType::Let,
                 "while" => TokenType::While,
                 "variant"   => TokenType::Variant,
                 "typeclass" => TokenType::Typeclass,

@@ -83,17 +83,6 @@ fn exec_expr_if(
     }
 }
 
-// fn exec_stmt_var(env: EnvRef, ident: &Ident, expr: &Option<Box<Expr>>) -> Result<(), ErrorType> {
-//     let value = match expr {
-//         Some(expr) => eval_expr(env.clone(), expr)?,
-//         None => LoxType::Nil,
-//     };
-//
-//     env.borrow_mut().define(&ident.0, &value);
-//
-//     Ok(())
-// }
-
 // fn exec_stmt_expr(env: EnvRef, expr: &Expr) -> Result<(), ErrorType> {
 //     eval_expr(env, expr)?;
 //     Ok(())
@@ -113,7 +102,14 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Tuple(exprs) => eval_expr_tuple(env, exprs),
         Expr::If(cond, t, f) => exec_expr_if(env, cond, t, f),
         Expr::Block(exprs) => exec_expr_block(env, exprs),
+        Expr::Let(ident, expr) => exec_expr_let(env, ident, expr),
     }
+}
+
+fn exec_expr_let(env: EnvRef, ident: &Ident, expr: &Expr) -> Result<LoxType, ErrorType> {
+    let expr = eval_expr(env.clone(), expr)?;
+    env.borrow_mut().define(&ident.0, &expr);
+    Ok(expr)
 }
 
 fn exec_expr_block(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {

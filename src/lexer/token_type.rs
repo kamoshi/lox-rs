@@ -16,7 +16,7 @@ pub enum TokenType {
 
     // Keywords
     And, Class, Else, False, Fun, For, If, Nil, Or,
-    Return, Super, This, True, Var, While,
+    Return, Super, This, True, Let, While,
     Typeclass, Instance, Variant,
 
     Eof,
@@ -51,7 +51,7 @@ impl Display for TokenType {
             Super           => "super".into(),
             This            => "this".into(),
             True            => "true".into(),
-            Var             => "var".into(),
+            Let             => "var".into(),
             While           => "while".into(),
             Eof             => "EOF".into(),
             Typeclass       => "typeclass".into(),

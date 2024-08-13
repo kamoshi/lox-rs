@@ -10,6 +10,7 @@
 #[derive(Debug, Clone)]
 pub enum Expr {
     Literal(Literal),
+    Let(Ident, Box<Expr>),
     Assign(Ident, Box<Expr>),
     Unary(String, Box<Expr>),
     Binary(Box<Expr>, String, Box<Expr>),

@@ -47,8 +47,8 @@ fn run(source: &str) {
         Err(error) => return error.report_rich(source),
     };
 
-    let ast = match parser::parse_expr(&tokens) {
-        Ok(ast) => ast,
+    let ast = match parser::parse(&tokens) {
+        Ok((_, ast)) => ast,
         Err(error) => return error.report_rich(source),
     };
 
