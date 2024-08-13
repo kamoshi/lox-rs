@@ -7,24 +7,7 @@ use crate::interpreter::{
     env::{Env, EnvRef},
 };
 use crate::lexer;
-use crate::parser::{self, ast};
-
-enum ReplMode {
-    Stmt(Vec<ast::Stmt>),
-    Expr(ast::Expr),
-}
-
-impl From<Vec<ast::Stmt>> for ReplMode {
-    fn from(value: Vec<ast::Stmt>) -> Self {
-        Self::Stmt(value)
-    }
-}
-
-impl From<ast::Expr> for ReplMode {
-    fn from(value: ast::Expr) -> Self {
-        Self::Expr(value)
-    }
-}
+use crate::parser;
 
 pub(crate) fn run_repl(lex: bool, parse: bool) {
     let env = Env::new_ref();
@@ -71,18 +54,11 @@ fn eval(env: EnvRef, source: &str) {
         Err(error) => return error.report_rich(source),
     };
 
-    let ast = parser::parse_expr(&tokens)
-        .map(ReplMode::from)
-        .or_else(|_| parser::parse(&tokens).map(ReplMode::from));
-
-    let ast = match ast {
-        Ok(ast) => ast,
-        Err(error) => return error.report_rich(source),
-    };
+    let ast = parser::parse_expr(&tokens);
 
     let result = match ast {
-        ReplMode::Stmt(stmt) => interpreter::exec(Some(env), &stmt),
-        ReplMode::Expr(expr) => interpreter::eval_expr(env, &expr).map(|res| print!("{res}")),
+        Ok(ast) => interpreter::eval_expr(env, &ast).map(|res| print!("{res}")),
+        Err(error) => return error.report_rich(source),
     };
 
     match result {

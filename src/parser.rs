@@ -1,5 +1,5 @@
 pub mod ast;
-pub mod parser;
 pub mod error;
+pub mod parser;
 
-pub(crate) use parser::{parse, parse_expr};
+pub(crate) use parser::parse_expr;

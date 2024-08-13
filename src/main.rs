@@ -47,7 +47,7 @@ fn run(source: &str) {
         Err(error) => return error.report_rich(source),
     };
 
-    let ast = match parser::parse(&tokens) {
+    let ast = match parser::parse_expr(&tokens) {
         Ok(ast) => ast,
         Err(error) => return error.report_rich(source),
     };
@@ -55,7 +55,7 @@ fn run(source: &str) {
     let env = Env::new_ref();
     populate(env.clone());
 
-    match interpreter::exec(Some(env), &ast) {
+    match interpreter::eval_expr(env, &ast) {
         Ok(_) => (),
         Err(err) => err.report(),
     }

@@ -1,8 +1,8 @@
-pub mod types;
+pub mod builtin;
 pub mod env;
 pub mod error;
 pub mod exec;
 pub mod native;
-pub mod builtin;
+pub mod types;
 
-pub use exec::{exec, eval_expr};
+pub use exec::eval_expr;

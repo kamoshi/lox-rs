@@ -1,12 +1,11 @@
-#[derive(Debug, Clone)]
-pub enum Stmt {
-    Block(Vec<Stmt>),
-    Var(Ident, Option<Box<Expr>>),
-    Expression(Box<Expr>),
-    While(Box<Expr>, Box<Stmt>),
-    // Function(Ident, Vec<Ident>, Vec<Stmt>),
-    Return(Option<Box<Expr>>),
-}
+// #[derive(Debug, Clone)]
+// pub enum Stmt {
+//     Var(Ident, Option<Box<Expr>>),
+//     Expression(Box<Expr>),
+//     While(Box<Expr>, Box<Stmt>),
+//     // Function(Ident, Vec<Ident>, Vec<Stmt>),
+//     Return(Option<Box<Expr>>),
+// }
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -21,6 +20,7 @@ pub enum Expr {
     Array(Vec<Expr>),
     Tuple(Vec<Expr>),
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
+    Block(Box<[Expr]>),
 }
 
 #[derive(Debug, Clone)]

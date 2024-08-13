@@ -1,9 +1,11 @@
 use crate::lexer::{token::Token, token_type::TokenType};
-use super::ast::{Stmt, Expr, Literal, Ident};
+use super::ast::{Expr, Literal, Ident};
 use super::error::{Error, ErrorType};
 
 
 // program      → statement* EOF ;
+//
+// sequence     → (expression ";")* expression? ;
 //
 // declaration  → declVar
 //              | declFun
@@ -51,19 +53,19 @@ use super::error::{Error, ErrorType};
 // lambda       → "fn" ( IDENTIFIER )+ "->" expression ;
 
 
-pub fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, Error> {
-    let mut ptr = 0;
-    let mut top = vec![];
-
-    while !matches!(tokens[ptr].ttype, TokenType::Eof) {
-        let (n, decl) = declaration(&tokens[ptr..])?;
-        ptr += n;       // n = decl
-
-        top.push(decl);
-    }
-
-    Ok(top)
-}
+// pub fn parse(tokens: &[Token]) -> Result<Vec<Stmt>, Error> {
+//     let mut ptr = 0;
+//     let mut top = vec![];
+//
+//     while !matches!(tokens[ptr].ttype, TokenType::Eof) {
+//         let (n, decl) = declaration(&tokens[ptr..])?;
+//         ptr += n;       // n = decl
+//
+//         top.push(decl);
+//     }
+//
+//     Ok(top)
+// }
 
 pub fn parse_expr(tokens: &[Token]) -> Result<Expr, Error> {
     let mut ptr = 0;
@@ -76,13 +78,13 @@ pub fn parse_expr(tokens: &[Token]) -> Result<Expr, Error> {
     Ok(*expr)
 }
 
-fn declaration(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-    match tokens.first().map(|t| &t.ttype) {
-        Some(TokenType::Var) => decl_var(tokens),
-        // Some(TokenType::Fun) => decl_fun(tokens),
-        _ => statement(tokens),
-    }
-}
+// fn declaration(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+//     match tokens.first().map(|t| &t.ttype) {
+//         Some(TokenType::Var) => decl_var(tokens),
+//         // Some(TokenType::Fun) => decl_fun(tokens),
+//         _ => statement(tokens),
+//     }
+// }
 
 // fn decl_fun(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
 //     function(tokens)
@@ -128,172 +130,173 @@ fn parameters(tokens: &[Token]) -> Result<(usize, Vec<Ident>), Error> {
     Ok((ptr-1, params))
 }
 
-fn decl_var(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-    let mut ptr = 1;    // 1 = var
+// fn decl_var(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+//     let mut ptr = 1;    // 1 = var
+//
+//     let ident = consume_ident(tokens, ptr)?;
+//     ptr += 1;           // 1 = ident
+//
+//     let expr = match tokens.get(ptr) {
+//         Some(Token { ttype: TokenType::Op(ref op), .. }) if op == "=" => {
+//             ptr += 1;       // 1 = =
+//
+//             let (n, expr) = expression(&tokens[ptr..])?;
+//             ptr += n;       // n = expr
+//
+//             Some(expr)
+//         },
+//         _ => None,
+//     };
+//
+//     consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+//     ptr += 1;           // 1 = ;
+//
+//     Ok((ptr, Stmt::Var(ident, expr)))
+// }
 
-    let ident = consume_ident(tokens, ptr)?;
-    ptr += 1;           // 1 = ident
+// fn statement(
+//     tokens: &[Token]
+// ) -> Result<(usize, Stmt), Error> {
+//     match tokens.first().map(|t| &t.ttype) {
+//         Some(TokenType::BraceL) => {
+//             let (n, block) = block(tokens)?;
+//             Ok((n, Stmt::Block(block)))
+//         },
+//         Some(TokenType::While)  => stmt_while(tokens),
+//         Some(TokenType::For)    => stmt_for(tokens),
+//         Some(TokenType::Return) => stmt_return(tokens),
+//         _ => stmt_expr(tokens),
+//     }
+// }
 
-    let expr = match tokens.get(ptr) {
-        Some(Token { ttype: TokenType::Op(ref op), .. }) if op == "=" => {
-            ptr += 1;       // 1 = =
+// fn stmt_return(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+//     let mut ptr = 1;    // 1 = return
+//
+//     let (n, expr) = match matches(tokens.get(ptr), &[TokenType::Semicolon]) {
+//         true => (0, None),
+//         false => {
+//             let (n, expr) = expression(&tokens[ptr..])?;
+//             (n, Some(expr))
+//         },
+//     };
+//     ptr += n;           // n =? expr
+//
+//     consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+//     ptr += 1;           // 1 = ;
+//
+//     Ok((ptr, Stmt::Return(expr)))
+// }
 
-            let (n, expr) = expression(&tokens[ptr..])?;
-            ptr += n;       // n = expr
-
-            Some(expr)
-        },
-        _ => None,
-    };
-
-    consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
-    ptr += 1;           // 1 = ;
-
-    Ok((ptr, Stmt::Var(ident, expr)))
-}
-
-fn statement(
-    tokens: &[Token]
-) -> Result<(usize, Stmt), Error> {
-    match tokens.first().map(|t| &t.ttype) {
-        Some(TokenType::BraceL) => {
-            let (n, block) = block(tokens)?;
-            Ok((n, Stmt::Block(block)))
-        },
-        Some(TokenType::While)  => stmt_while(tokens),
-        Some(TokenType::For)    => stmt_for(tokens),
-        Some(TokenType::Return) => stmt_return(tokens),
-        _ => stmt_expr(tokens),
-    }
-}
-
-fn stmt_return(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-    let mut ptr = 1;    // 1 = return
-
-    let (n, expr) = match matches(tokens.get(ptr), &[TokenType::Semicolon]) {
-        true => (0, None),
-        false => {
-            let (n, expr) = expression(&tokens[ptr..])?;
-            (n, Some(expr))
-        },
-    };
-    ptr += n;           // n =? expr
-
-    consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
-    ptr += 1;           // 1 = ;
-
-    Ok((ptr, Stmt::Return(expr)))
-}
-
-fn block(tokens: &[Token]) -> Result<(usize, Vec<Stmt>), Error> {
+fn block(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;    // 1 = {
     let mut block = vec![];
 
     while ptr < tokens.len() && !matches(tokens.get(ptr), &[TokenType::BraceR, TokenType::Eof]) {
-        let (n, stmt) = declaration(&tokens[ptr..])?;
+        let (n, expr) = expression(&tokens[ptr..])?;
         ptr += n;
 
-        block.push(stmt);
+        block.push(*expr);
     }
 
     consume(tokens, ptr, TokenType::BraceR, ErrorType::MissingBrace)?;
     ptr += 1;           // 1 = }
 
-    Ok((ptr, block))
+    Ok((ptr, Expr::Block(block.into()).into()))
 }
 
-fn stmt_while(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-    let mut ptr = 1;    // 1 = while
-    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
-    ptr += 1;           // 1 = (
-    let (n, cond) = expression(&tokens[ptr..])?;
-    ptr += n;           // n = expr
-    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
-    ptr += 1;           // 1 = )
-    let (n, body) = statement(&tokens[ptr..])?;
-    ptr += n;           // n = expr
+// fn stmt_while(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+//     let mut ptr = 1;    // 1 = while
+//     consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
+//     ptr += 1;           // 1 = (
+//     let (n, cond) = expression(&tokens[ptr..])?;
+//     ptr += n;           // n = expr
+//     consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
+//     ptr += 1;           // 1 = )
+//     let (n, body) = statement(&tokens[ptr..])?;
+//     ptr += n;           // n = expr
+//
+//     Ok((ptr, Stmt::While(cond, body.into())))
+// }
 
-    Ok((ptr, Stmt::While(cond, body.into())))
-}
+// fn stmt_for(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+//     let mut ptr = 1;    // 1 = for
+//     consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
+//     ptr += 1;           // 1 = (
+//
+//     let init = match tokens.get(ptr).map(|t| &t.ttype) {
+//         Some(TokenType::Semicolon) => {
+//             ptr += 1;   // 1 =? ;
+//             None
+//         },
+//         Some(TokenType::Var) => {
+//             let (n, init) = decl_var(&tokens[ptr..])?;
+//             ptr += n;   // n =? init
+//             Some(init)
+//         },
+//         _ => {
+//             let (n, init) = stmt_expr(&tokens[ptr..])?;
+//             ptr += n;   // n =? init
+//             Some(init)
+//         },
+//     };
+//
+//     let cond = match tokens.get(ptr).map(|t| &t.ttype) {
+//         Some(TokenType::Semicolon) => Expr::Literal(Literal::True).into(),
+//         _ => {
+//             let (n, expr) = expression(&tokens[ptr..])?;
+//             ptr += n;   // n =? cond
+//             expr
+//         },
+//     };
+//     consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+//     ptr += 1;           // 1 = ;
+//
+//     let inc = match tokens.get(ptr).map(|t| &t.ttype) {
+//         Some(TokenType::ParenR) => None,
+//         _ => {
+//             let (n, expr) = expression(&tokens[ptr..])?;
+//             ptr += n;   // n =? inc
+//             Some(expr)
+//         },
+//     };
+//     consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
+//     ptr += 1;           // 1 = )
+//
+//     let (n, body) = statement(&tokens[ptr..])?;
+//     ptr += n;           // n = body
+//
+//     let body = match inc {
+//         Some(inc) => Stmt::Block(vec![body, Stmt::Expression(inc)]),
+//         None => body,
+//     };
+//
+//     let body = Stmt::While(cond, body.into());
+//
+//     let body = match init {
+//         Some(init) => Stmt::Block(vec![init, body]),
+//         None => body,
+//     };
+//
+//     Ok((ptr, body))
+// }
 
-fn stmt_for(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-    let mut ptr = 1;    // 1 = for
-    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
-    ptr += 1;           // 1 = (
-
-    let init = match tokens.get(ptr).map(|t| &t.ttype) {
-        Some(TokenType::Semicolon) => {
-            ptr += 1;   // 1 =? ;
-            None
-        },
-        Some(TokenType::Var) => {
-            let (n, init) = decl_var(&tokens[ptr..])?;
-            ptr += n;   // n =? init
-            Some(init)
-        },
-        _ => {
-            let (n, init) = stmt_expr(&tokens[ptr..])?;
-            ptr += n;   // n =? init
-            Some(init)
-        },
-    };
-
-    let cond = match tokens.get(ptr).map(|t| &t.ttype) {
-        Some(TokenType::Semicolon) => Expr::Literal(Literal::True).into(),
-        _ => {
-            let (n, expr) = expression(&tokens[ptr..])?;
-            ptr += n;   // n =? cond
-            expr
-        },
-    };
-    consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
-    ptr += 1;           // 1 = ;
-
-    let inc = match tokens.get(ptr).map(|t| &t.ttype) {
-        Some(TokenType::ParenR) => None,
-        _ => {
-            let (n, expr) = expression(&tokens[ptr..])?;
-            ptr += n;   // n =? inc
-            Some(expr)
-        },
-    };
-    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
-    ptr += 1;           // 1 = )
-
-    let (n, body) = statement(&tokens[ptr..])?;
-    ptr += n;           // n = body
-
-    let body = match inc {
-        Some(inc) => Stmt::Block(vec![body, Stmt::Expression(inc)]),
-        None => body,
-    };
-
-    let body = Stmt::While(cond, body.into());
-
-    let body = match init {
-        Some(init) => Stmt::Block(vec![init, body]),
-        None => body,
-    };
-
-    Ok((ptr, body))
-}
-
-fn stmt_expr(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-    let mut ptr = 0;
-
-    let (n, expr) = expression(tokens)?;
-    ptr += n;           // n = expr
-
-    consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
-    ptr += 1;           // 1 = ;
-
-    Ok((ptr, Stmt::Expression(expr)))
-}
+// fn stmt_expr(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
+//     let mut ptr = 0;
+//
+//     let (n, expr) = expression(tokens)?;
+//     ptr += n;           // n = expr
+//
+//     consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
+//     ptr += 1;           // 1 = ;
+//
+//     Ok((ptr, Stmt::Expression(expr)))
+// }
 
 
 fn expression(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     match tokens.first().map(|t| &t.ttype) {
         Some(TokenType::If)     => expr_if(tokens),
+        Some(TokenType::BraceL) => block(tokens),
         _ => assignment(tokens),
     }
 }

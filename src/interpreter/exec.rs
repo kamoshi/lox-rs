@@ -4,47 +4,47 @@ use super::env::{Env, EnvRef};
 use super::error::ErrorType;
 use super::types::{LoxFn, LoxType};
 use crate::interpreter::builtin;
-use crate::parser::ast::{Expr, Ident, Literal, Stmt};
+use crate::parser::ast::{Expr, Ident, Literal};
 
-pub fn exec(g_env: Option<EnvRef>, stmts: &[Stmt]) -> Result<(), ErrorType> {
-    let mut env = match g_env {
-        Some(env) => env,
-        None => Env::new_ref(),
-    };
+// pub fn exec(g_env: Option<EnvRef>, stmts: &[Stmt]) -> Result<(), ErrorType> {
+//     let mut env = match g_env {
+//         Some(env) => env,
+//         None => Env::new_ref(),
+//     };
+//
+//     for stmt in stmts {
+//         // lexical scope fix
+//         // scheme style!
+//         if matches!(stmt, Stmt::Var(..)) {
+//             env = Env::wrap(env);
+//         }
+//
+//         exec_stmt(env.clone(), stmt)?;
+//     }
+//
+//     Ok(())
+// }
 
-    for stmt in stmts {
-        // lexical scope fix
-        // scheme style!
-        if matches!(stmt, Stmt::Var(..)) {
-            env = Env::wrap(env);
-        }
+// fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
+//     match stmt {
+//         Stmt::Var(ident, expr) => exec_stmt_var(env, ident, expr)?,
+//         Stmt::Expression(expr) => exec_stmt_expr(env, expr)?,
+//         Stmt::Block(stmts) => exec(Some(Env::wrap(env)), stmts)?,
+//         Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
+//         // Stmt::Function(n, p, b) => exec_stmt_func(env, n, p, b)?,
+//         Stmt::Return(expr) => exec_stmt_return(env, expr)?,
+//     };
+//     Ok(())
+// }
 
-        exec_stmt(env.clone(), stmt)?;
-    }
-
-    Ok(())
-}
-
-fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
-    match stmt {
-        Stmt::Var(ident, expr) => exec_stmt_var(env, ident, expr)?,
-        Stmt::Expression(expr) => exec_stmt_expr(env, expr)?,
-        Stmt::Block(stmts) => exec(Some(Env::wrap(env)), stmts)?,
-        Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
-        // Stmt::Function(n, p, b) => exec_stmt_func(env, n, p, b)?,
-        Stmt::Return(expr) => exec_stmt_return(env, expr)?,
-    };
-    Ok(())
-}
-
-fn exec_stmt_return(env: EnvRef, expr: &Option<Box<Expr>>) -> Result<(), ErrorType> {
-    let res = match expr {
-        Some(expr) => eval_expr(env, expr)?,
-        None => LoxType::Nil,
-    };
-
-    Err(ErrorType::Return(res))
-}
+// fn exec_stmt_return(env: EnvRef, expr: &Option<Box<Expr>>) -> Result<(), ErrorType> {
+//     let res = match expr {
+//         Some(expr) => eval_expr(env, expr)?,
+//         None => LoxType::Nil,
+//     };
+//
+//     Err(ErrorType::Return(res))
+// }
 
 // fn exec_stmt_func(env: EnvRef, name: &Ident, params: &[Ident], body: &[Stmt]) -> Result<(), ErrorType> {
 //     let mut params = params.iter().rev();
@@ -61,12 +61,12 @@ fn exec_stmt_return(env: EnvRef, expr: &Option<Box<Expr>>) -> Result<(), ErrorTy
 //     Ok(())
 // }
 
-fn exec_stmt_while(env: EnvRef, cond: &Expr, stmt: &Stmt) -> Result<(), ErrorType> {
-    while eval_expr(env.clone(), cond)?.is_truthy() {
-        exec_stmt(env.clone(), stmt)?;
-    }
-    Ok(())
-}
+// fn exec_stmt_while(env: EnvRef, cond: &Expr, stmt: &Stmt) -> Result<(), ErrorType> {
+//     while eval_expr(env.clone(), cond)?.is_truthy() {
+//         exec_stmt(env.clone(), stmt)?;
+//     }
+//     Ok(())
+// }
 
 fn exec_expr_if(
     env: EnvRef,
@@ -83,21 +83,21 @@ fn exec_expr_if(
     }
 }
 
-fn exec_stmt_var(env: EnvRef, ident: &Ident, expr: &Option<Box<Expr>>) -> Result<(), ErrorType> {
-    let value = match expr {
-        Some(expr) => eval_expr(env.clone(), expr)?,
-        None => LoxType::Nil,
-    };
+// fn exec_stmt_var(env: EnvRef, ident: &Ident, expr: &Option<Box<Expr>>) -> Result<(), ErrorType> {
+//     let value = match expr {
+//         Some(expr) => eval_expr(env.clone(), expr)?,
+//         None => LoxType::Nil,
+//     };
+//
+//     env.borrow_mut().define(&ident.0, &value);
+//
+//     Ok(())
+// }
 
-    env.borrow_mut().define(&ident.0, &value);
-
-    Ok(())
-}
-
-fn exec_stmt_expr(env: EnvRef, expr: &Expr) -> Result<(), ErrorType> {
-    eval_expr(env, expr)?;
-    Ok(())
-}
+// fn exec_stmt_expr(env: EnvRef, expr: &Expr) -> Result<(), ErrorType> {
+//     eval_expr(env, expr)?;
+//     Ok(())
+// }
 
 pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
     match expr {
@@ -112,7 +112,18 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Array(exprs) => eval_expr_array(env, exprs),
         Expr::Tuple(exprs) => eval_expr_tuple(env, exprs),
         Expr::If(cond, t, f) => exec_expr_if(env, cond, t, f),
+        Expr::Block(exprs) => exec_expr_block(env, exprs),
     }
+}
+
+fn exec_expr_block(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
+    let mut ret = LoxType::Nil;
+
+    for expr in exprs {
+        ret = eval_expr(env.clone(), expr)?;
+    }
+
+    Ok(ret)
 }
 
 fn eval_expr_tuple(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
