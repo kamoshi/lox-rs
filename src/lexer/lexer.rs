@@ -128,14 +128,20 @@ fn read_token(
             };
             Ok((consumed, Some(token_type)))
         },
-        _ => {
-            let consumed = chars.iter()
-                .position(|&c| !c.is_ascii_punctuation() || c == '_')
-                .unwrap_or(chars.len());
-
-            let text = String::from_iter(&chars[..consumed]);
-
-            Ok((consumed, Some(TokenType::Op(text))))
-        },
+        '=' => match next.map_or(false, char::is_ascii_punctuation) {
+            true => lex_op(chars),
+            false => Ok((1, Some(TokenType::Equal)))
+        }
+        _ => lex_op(chars),
     }
+}
+
+fn lex_op(chars: &[char]) -> Result<(usize, Option<TokenType>), ErrorType> {
+    let consumed = chars.iter()
+        .position(|&c| !c.is_ascii_punctuation() || c == '_')
+        .unwrap_or(chars.len());
+
+    let text = String::from_iter(&chars[..consumed]);
+
+    Ok((consumed, Some(TokenType::Op(text))))
 }

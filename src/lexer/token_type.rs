@@ -9,7 +9,7 @@ pub enum TokenType {
     Comma, Dot, Semicolon,
 
     // One or two character tokens
-    Op(String),
+    Equal, Op(String),
 
     // Literals
     Ident(String), Str(String), Num(f64),
@@ -58,6 +58,7 @@ impl Display for TokenType {
             Instance        => "instance".into(),
             Variant         => "variant".into(),
 
+            Equal  => "equal".into(),
             Op(op) => format!("op <{op}>").into(),
         };
 

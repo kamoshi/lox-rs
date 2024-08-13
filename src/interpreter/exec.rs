@@ -61,13 +61,6 @@ use crate::parser::ast::{Expr, Ident, Literal};
 //     Ok(())
 // }
 
-// fn exec_stmt_while(env: EnvRef, cond: &Expr, stmt: &Stmt) -> Result<(), ErrorType> {
-//     while eval_expr(env.clone(), cond)?.is_truthy() {
-//         exec_stmt(env.clone(), stmt)?;
-//     }
-//     Ok(())
-// }
-
 fn exec_expr_if(
     env: EnvRef,
     cond: &Expr,
@@ -103,7 +96,16 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::If(cond, t, f) => exec_expr_if(env, cond, t, f),
         Expr::Block(exprs) => exec_expr_block(env, exprs),
         Expr::Let(ident, expr) => exec_expr_let(env, ident, expr),
+        Expr::While(cond, body) => eval_expr_while(env, cond, body),
     }
+}
+
+fn eval_expr_while(env: EnvRef, cond: &Expr, body: &Expr) -> Result<LoxType, ErrorType> {
+    let mut res = LoxType::Nil;
+    while eval_expr(env.clone(), cond)?.is_truthy() {
+        res = eval_expr(env.clone(), body)?;
+    }
+    Ok(res)
 }
 
 fn exec_expr_let(env: EnvRef, ident: &Ident, expr: &Expr) -> Result<LoxType, ErrorType> {
