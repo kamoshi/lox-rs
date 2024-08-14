@@ -1,4 +1,4 @@
-use crate::lexer::{token::Token, token_type::TokenType};
+use crate::lex::{token::Token, token_type::TokenType};
 use super::error::{Error, ErrorType};
 
 

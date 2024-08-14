@@ -1,5 +1,4 @@
-use std::{env, fs, process};
-
+use std::{fs, process};
 use clap::Parser;
 
 use crate::error::LoxError;
@@ -7,7 +6,7 @@ use crate::interpreter::{env::Env, native::populate};
 
 mod error;
 mod interpreter;
-mod lexer;
+mod lex;
 mod parser;
 mod repl;
 
@@ -38,25 +37,30 @@ fn main() {
 
 fn run_file(path: &str) {
     let source = fs::read_to_string(path).expect("Couldn't read");
-    let _result = run(&source); //.unwrap_or_else(|_| process::exit(65));
+    let result = run(&source); //.unwrap_or_else(|_| process::exit(65));
+
+    match result {
+        Ok(res) => println!("{res}"),
+        Err(_) => (),
+    }
 }
 
-fn run(source: &str) {
-    let tokens = match lexer::tokenize(source) {
+fn run(source: &str) -> Result<interpreter::types::LoxType, ()> {
+    let tokens = match lex::tokenize(source) {
         Ok(tokens) => tokens,
-        Err(error) => return error.report_rich(source),
+        Err(error) => return Err(error.report_rich(source)),
     };
 
     let ast = match parser::parse(&tokens) {
         Ok((_, ast)) => ast,
-        Err(error) => return error.report_rich(source),
+        Err(error) => return Err(error.report_rich(source)),
     };
 
     let env = Env::new_ref();
     populate(env.clone());
 
     match interpreter::eval_expr(env, &ast) {
-        Ok(_) => (),
-        Err(err) => err.report(),
+        Ok(res) => Ok(res),
+        Err(e) => Err(e.report_rich(source)),
     }
 }

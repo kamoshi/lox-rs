@@ -6,7 +6,7 @@ use crate::interpreter::{
     self,
     env::{Env, EnvRef},
 };
-use crate::lexer;
+use crate::lex;
 use crate::parser;
 
 pub(crate) fn run_repl(lex: bool, parse: bool) {
@@ -19,9 +19,9 @@ pub(crate) fn run_repl(lex: bool, parse: bool) {
         match rl.readline("> ") {
             Ok(line) => {
                 if lex {
-                    let _ = lexer::tokenize(&line).map(|x| println!("{x:?}"));
+                    let _ = lex::tokenize(&line).map(|x| println!("{x:?}"));
                 } else if parse {
-                    match lexer::tokenize(&line).map(|tokens| parser::parse(&tokens)) {
+                    match lex::tokenize(&line).map(|tokens| parser::parse(&tokens)) {
                         Ok(Ok(res)) => println!("{:#?}", res),
                         _ => todo!(),
                     };
@@ -49,7 +49,7 @@ pub(crate) fn run_repl(lex: bool, parse: bool) {
 
 fn eval(env: EnvRef, source: &str) {
     // First try parsing expressions and then try statements
-    let tokens = match lexer::tokenize(source) {
+    let tokens = match lex::tokenize(source) {
         Ok(tokens) => tokens,
         Err(error) => return error.report_rich(source),
     };

@@ -1,4 +1,4 @@
-use crate::lexer::{token::Token, token_type::TokenType};
+use crate::lex::{token::Token, token_type::TokenType};
 use super::ast::{Expr, Literal, Ident};
 use super::error::{Error, ErrorType};
 
@@ -252,12 +252,9 @@ fn expr_let(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 
 fn expr_if(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;    // 1 = if
-    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
-    ptr += 1;           // 1 = (
+
     let (n, cond) = expression(&tokens[ptr..])?;
     ptr += n;           // n = expr
-    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
-    ptr += 1;           // 1 = )
 
     let (n, branch_t) = expression(&tokens[ptr..])?;
     ptr += n;           // n = true branch

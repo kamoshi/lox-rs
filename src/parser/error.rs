@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::lexer::token_type::TokenType;
+use crate::lex::token_type::TokenType;
 use crate::error::LoxError;
 
 #[derive(Debug)]

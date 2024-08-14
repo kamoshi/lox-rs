@@ -103,7 +103,7 @@ impl LoxType {
     }
 }
 
-pub trait LoxCallable: Display {
+pub trait LoxCallable {
     fn call(&self, args: &LoxType) -> Result<LoxType, ErrorType>;
 }
 

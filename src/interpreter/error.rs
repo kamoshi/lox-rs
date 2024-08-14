@@ -22,6 +22,6 @@ impl LoxError for ErrorType {
     }
 
     fn report_rich(&self, source: &str) {
-        todo!()
+        self.report()
     }
 }

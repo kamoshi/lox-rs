@@ -1,0 +1,20 @@
+let fib = fn n -> {
+  if n == 0 {
+    return 0
+  };
+
+  let current = 1;
+  let previous = 0;
+
+  let i = 0;
+  while i < n - 1 {
+    let next = current + previous;
+    previous = current;
+    current = next;
+    i = i + 1;
+  };
+
+  current
+};
+
+fib 10
