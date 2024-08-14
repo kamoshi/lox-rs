@@ -15,7 +15,30 @@ pub enum LoxType {
     String(String),
     Array(Vec<LoxType>),
     Tuple(Box<[LoxType]>),
-    Callable(Rc<dyn LoxCallable>),
+    Callable(Callable),
+}
+
+#[derive(Clone)]
+pub(crate) struct Callable(Rc<dyn LoxCallable>);
+
+impl Callable {
+    pub(crate) fn new(func: Rc<dyn LoxCallable>) -> Self {
+        Self(func)
+    }
+
+    #[inline(always)]
+    pub(crate) fn call(&self, arg: &LoxType) -> Result<LoxType, ErrorType> {
+        match self.0.call(arg) {
+            Err(ErrorType::Return(res)) => Ok(res),
+            other => other,
+        }
+    }
+}
+
+impl Display for Callable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[fn]")
+    }
 }
 
 impl Display for LoxType {
@@ -60,7 +83,7 @@ impl PartialEq for LoxType {
             (Self::Boolean(l), Self::Boolean(r)) => l == r,
             (Self::Number(l), Self::Number(r)) => l == r,
             (Self::String(l), Self::String(r)) => l == r,
-            (Self::Callable(l), Self::Callable(r)) => Rc::ptr_eq(l, r),
+            (Self::Callable(l), Self::Callable(r)) => false, // Rc::ptr_eq(l, r)
             _ => discriminant(self) == discriminant(other),
         }
     }

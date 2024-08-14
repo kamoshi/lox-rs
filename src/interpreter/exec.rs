@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use super::env::{Env, EnvRef};
 use super::error::ErrorType;
-use super::types::{LoxFn, LoxType};
+use super::types::{Callable, LoxFn, LoxType};
 use crate::interpreter::builtin;
 use crate::parser::ast::{Expr, Ident, Literal};
 
@@ -35,15 +35,6 @@ use crate::parser::ast::{Expr, Ident, Literal};
 //         Stmt::Return(expr) => exec_stmt_return(env, expr)?,
 //     };
 //     Ok(())
-// }
-
-// fn exec_stmt_return(env: EnvRef, expr: &Option<Box<Expr>>) -> Result<(), ErrorType> {
-//     let res = match expr {
-//         Some(expr) => eval_expr(env, expr)?,
-//         None => LoxType::Nil,
-//     };
-//
-//     Err(ErrorType::Return(res))
 // }
 
 // fn exec_stmt_func(env: EnvRef, name: &Ident, params: &[Ident], body: &[Stmt]) -> Result<(), ErrorType> {
@@ -97,7 +88,17 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Block(exprs) => exec_expr_block(env, exprs),
         Expr::Let(ident, expr) => exec_expr_let(env, ident, expr),
         Expr::While(cond, body) => eval_expr_while(env, cond, body),
+        Expr::Return(expr) => eval_expr_return(env, expr.as_deref()),
     }
+}
+
+fn eval_expr_return(env: EnvRef, expr: Option<&Expr>) -> Result<LoxType, ErrorType> {
+    let res = match expr {
+        Some(expr) => eval_expr(env, expr)?,
+        None => LoxType::Nil,
+    };
+
+    Err(ErrorType::Return(res))
 }
 
 fn eval_expr_while(env: EnvRef, cond: &Expr, body: &Expr) -> Result<LoxType, ErrorType> {
@@ -141,23 +142,20 @@ fn eval_expr_array(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
 }
 
 fn eval_lambda(env: EnvRef, param: &Ident, body: &Expr) -> Result<LoxType, ErrorType> {
-    Ok(LoxType::Callable(Rc::new(LoxFn::new(param.0.clone(), body.clone().into(),
-        env.clone(),
-    ))))
+    let x = Rc::new(LoxFn::new(param.0.clone(), body.clone().into(), env.clone()));
+    Ok(LoxType::Callable(Callable::new(x)))
 }
 
 fn eval_expr_call(env: EnvRef, callee: &Expr, arg: &Expr) -> Result<LoxType, ErrorType> {
     let callee = eval_expr(env.clone(), callee)?;
     let arg = eval_expr(env.clone(), arg)?;
 
-    let res = match callee {
+    match callee {
         LoxType::Callable(c) => c.call(&arg),
-        _ => Err(ErrorType::TypeMismatch("Can't call this value")),
-    };
-
-    match res {
-        Err(ErrorType::Return(res)) => Ok(res),
-        other => other,
+        _ => {
+            println!("Can't call {}", callee);
+            Err(ErrorType::TypeMismatch("Can't call this value"))
+        },
     }
 }
 

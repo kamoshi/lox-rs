@@ -18,25 +18,25 @@ use super::error::{Error, ErrorType};
 // parameters   → IDENTIFIER ( "," IDENTIFIER )* ;
 //
 // statement    → block
-//              | stmtWhile
 //              | stmtFor
 //              | stmtReturn
 //              | stmtExpr ;
 //
 // block        → "{" declaration* "}" ;
 // stmtFor      → "for" "(" ( declVar | stmtExpr | ";" ) expression? ";" expression? ")" statement ;
-// stmtreturn   → "return" expression? ";" ;
 // stmtExpr     → expression ";" ;
 //
 // expression   → IDENTIFIER "=" assignment
 //              | exprLet
 //              | exprIf
 //              | exprWhile
+//              | exprReturn
 //              | exprPratt ;
 //
 // exprLet      → "let" IDENTIFIER "=" expression ;
-// exprIf       → "if" "(" expression ")" statement ( "else" statement )?
+// exprIf       → "if" "(" expression ")" expression ( "else" expression )?
 // exprWhile    → "while" "(" expression ")" expression;
+// exprReturn   → "return" expression? ;
 // exprPratt    → call
 //              | PRATT ;
 //
@@ -137,24 +137,6 @@ fn parameters(tokens: &[Token]) -> Result<(usize, Vec<Ident>), Error> {
 //     }
 // }
 
-// fn stmt_return(tokens: &[Token]) -> Result<(usize, Stmt), Error> {
-//     let mut ptr = 1;    // 1 = return
-//
-//     let (n, expr) = match matches(tokens.get(ptr), &[TokenType::Semicolon]) {
-//         true => (0, None),
-//         false => {
-//             let (n, expr) = expression(&tokens[ptr..])?;
-//             (n, Some(expr))
-//         },
-//     };
-//     ptr += n;           // n =? expr
-//
-//     consume(tokens, ptr, TokenType::Semicolon, ErrorType::MissingSemicolon)?;
-//     ptr += 1;           // 1 = ;
-//
-//     Ok((ptr, Stmt::Return(expr)))
-// }
-
 fn expr_block(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;    // 1 = {
 
@@ -248,6 +230,7 @@ fn expression(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
         Some(TokenType::If)     => expr_if(tokens),
         Some(TokenType::While)  => expr_while(tokens),
         Some(TokenType::BraceL) => expr_block(tokens),
+        Some(TokenType::Return) => expr_return(tokens),
         _ => expr_assign(tokens),
     }
 }
@@ -293,17 +276,30 @@ fn expr_if(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 }
 
 fn expr_while(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    let mut ptr = 1;    // 1 while
-    consume(tokens, ptr, TokenType::ParenL, ErrorType::MissingParenL)?;
-    ptr += 1;           // 1 (
+    let mut ptr = 1;    // 1 "while"
+    //
     let (n, cond) = expression(&tokens[ptr..])?;
     ptr += n;           // n expr
-    consume(tokens, ptr, TokenType::ParenR, ErrorType::MissingParenR)?;
-    ptr += 1;           // 1 )
+
     let (n, expr) = expression(&tokens[ptr..])?;
-    ptr += n;           // n = expr
+    ptr += n;           // n expr
 
     Ok((ptr, Expr::While(cond, expr).into()))
+}
+
+fn expr_return(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 1;    // 1 "return"
+
+    let (n, expr) = match tokens.get(ptr) {
+        Some(Token { ttype: TokenType::Semicolon, .. }) => (0, None),
+        _ => {
+            let (n, expr) = expression(&tokens[ptr..])?;
+            (n, Some(expr))
+        }
+    };
+    ptr += n;           // n =? expr
+
+    Ok((ptr, Expr::Return(expr).into()))
 }
 
 fn expr_assign(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {

@@ -1,6 +1,6 @@
 use super::env::EnvRef;
 use super::error::ErrorType;
-use super::types::{LoxCallable, LoxType};
+use super::types::{Callable, LoxCallable, LoxType};
 use std::fmt::Display;
 use std::rc::Rc;
 
@@ -37,6 +37,6 @@ impl Display for LoxFnNative {
 
 pub fn populate(env: EnvRef) {
     let mut env = env.borrow_mut();
-    env.define("clock", &LoxType::Callable(Rc::new(LoxFnNative::Clock)));
-    env.define("print", &LoxType::Callable(Rc::new(LoxFnNative::Print)));
+    env.define("clock", &LoxType::Callable(Callable::new(Rc::new(LoxFnNative::Clock))));
+    env.define("print", &LoxType::Callable(Callable::new(Rc::new(LoxFnNative::Print))));
 }

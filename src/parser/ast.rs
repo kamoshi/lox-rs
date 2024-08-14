@@ -23,6 +23,7 @@ pub enum Expr {
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
     Block(Box<[Expr]>),
     While(Box<Expr>, Box<Expr>),
+    Return(Option<Box<Expr>>),
 }
 
 #[derive(Debug, Clone)]
