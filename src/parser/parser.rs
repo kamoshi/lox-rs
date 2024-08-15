@@ -33,6 +33,8 @@ use super::error::{Error, ErrorType};
 //              | exprReturn
 //              | exprPratt ;
 //
+// exprVariant  → "variant" IDENTIFIER ( "|" IDENTIFIER IDENTIFIER* )*
+// exprMatch    → "match" IDENTIFIER ( "|" IDENTIFIER "->" expression)*
 // exprLet      → "let" IDENTIFIER "=" expression ;
 // exprIf       → "if" "(" expression ")" expression ( "else" expression )?
 // exprWhile    → "while" "(" expression ")" expression;
@@ -226,13 +228,62 @@ fn expr_block(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 
 fn expression(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     match tokens.first().map(|t| &t.ttype) {
-        Some(TokenType::Let)    => expr_let(tokens),
-        Some(TokenType::If)     => expr_if(tokens),
-        Some(TokenType::While)  => expr_while(tokens),
-        Some(TokenType::BraceL) => expr_block(tokens),
-        Some(TokenType::Return) => expr_return(tokens),
+        Some(TokenType::Variant) => expr_variant(tokens),
+        Some(TokenType::Match)   => expr_match(tokens),
+        Some(TokenType::Let)     => expr_let(tokens),
+        Some(TokenType::If)      => expr_if(tokens),
+        Some(TokenType::While)   => expr_while(tokens),
+        Some(TokenType::BraceL)  => expr_block(tokens),
+        Some(TokenType::Return)  => expr_return(tokens),
         _ => expr_assign(tokens),
     }
+}
+
+fn expr_match(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 1;    // 1 "match"
+
+    let (n, matched) = expression(&tokens[ptr..])?;
+    ptr += n;           // n expression
+
+    let mut items = vec![];
+    while let Some(Token { ttype: TokenType::Pipe, .. }) = tokens.get(ptr) {
+        ptr += 1;       // 1 "|"
+
+        let case = consume_ident(tokens, ptr)?;
+        ptr += 1;       // 1 IDENTIFIER
+
+        consume(tokens, ptr, TokenType::Op("->".into()), ErrorType::ExprLeftover)?;
+        ptr += 1;       // 1 "->"
+
+        let (n, expr) = expression(&tokens[ptr..])?;
+        ptr += n;       // n expression
+
+        items.push((case, *expr));
+    }
+
+    Ok((ptr, Expr::Match(matched, items.into()).into()))
+}
+
+
+// exprVariant  → "variant" IDENTIFIER ( "|" IDENTIFIER IDENTIFIER* )*
+
+fn expr_variant(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 1;
+
+    let name = consume_ident(tokens, ptr)?;
+    ptr += 1;           // 1 = ident
+
+    let mut items = vec![];
+    while let Some(Token { ttype: TokenType::Pipe, .. }) = tokens.get(ptr) {
+        ptr += 1;
+
+        let item = consume_ident(tokens, ptr)?;
+        ptr += 1;
+
+        items.push(item)
+    }
+
+    Ok((ptr, Expr::Variant(name, items).into()))
 }
 
 fn expr_let(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {

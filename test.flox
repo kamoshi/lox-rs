@@ -17,4 +17,12 @@ let fib = fn n -> {
   current
 };
 
-fib 10
+print $ fib 10;
+
+let o = variant Option
+  | Some
+  | None;
+
+match o
+  | None -> "this is none"
+  | Some -> "this is some"

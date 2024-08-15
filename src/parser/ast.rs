@@ -24,6 +24,8 @@ pub enum Expr {
     Block(Box<[Expr]>),
     While(Box<Expr>, Box<Expr>),
     Return(Option<Box<Expr>>),
+    Variant(Ident, Vec<Ident>),
+    Match(Box<Expr>, Box<[(Ident, Expr)]>)
 }
 
 #[derive(Debug, Clone)]

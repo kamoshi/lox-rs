@@ -1,5 +1,5 @@
 use crate::parser::ast::Expr;
-use std::{fmt::Display, rc::Rc};
+use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use super::{
     env::{Env, EnvRef},
@@ -16,6 +16,8 @@ pub enum LoxType {
     Array(Vec<LoxType>),
     Tuple(Box<[LoxType]>),
     Callable(Callable),
+    Module(HashMap<String, LoxType>),
+    Data(String, String),
 }
 
 #[derive(Clone)]
@@ -71,7 +73,9 @@ impl Display for LoxType {
                     }
                 }
                 write!(f, ")")
-            }
+            },
+            Module(m) => write!(f, "module"),
+            Data(a, b) => write!(f, "{a} {b}"),
         }
     }
 }
@@ -99,6 +103,7 @@ impl LoxType {
             LoxType::Callable(_) => true,
             LoxType::Array(_) => false,
             LoxType::Tuple(_) => false,
+            _ => false,
         }
     }
 }

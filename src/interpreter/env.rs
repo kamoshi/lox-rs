@@ -34,7 +34,7 @@ impl Env {
         match (self.inner.get(k), &self.outer) {
             (Some(v), _)        => Ok(v.clone()),
             (None, Some(outer)) => outer.borrow().get(k),
-            (None, None)        => Err(ErrorType::EnvNilAccess),
+            (None, None)        => { println!("{k}"); Err(ErrorType::EnvNilAccess) },
         }
     }
 

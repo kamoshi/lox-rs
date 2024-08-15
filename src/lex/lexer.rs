@@ -124,13 +124,18 @@ fn read_token(
                 "variant"   => TokenType::Variant,
                 "typeclass" => TokenType::Typeclass,
                 "instance"  => TokenType::Instance,
+                "match" => TokenType::Match,
                 other   => TokenType::Ident(String::from(other)),
             };
             Ok((consumed, Some(token_type)))
         },
-        '=' => match next.map_or(false, char::is_ascii_punctuation) {
+        '=' | '|' => match next.map_or(false, char::is_ascii_punctuation) {
             true => lex_op(chars),
-            false => Ok((1, Some(TokenType::Equal)))
+            false => match curr {
+                '=' => Ok((1, Some(TokenType::Equal))),
+                '|' => Ok((1, Some(TokenType::Pipe))),
+                _ => unreachable!(),
+            }
         }
         _ => lex_op(chars),
     }

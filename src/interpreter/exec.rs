@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::env::{Env, EnvRef};
@@ -89,7 +90,29 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Let(ident, expr) => exec_expr_let(env, ident, expr),
         Expr::While(cond, body) => eval_expr_while(env, cond, body),
         Expr::Return(expr) => eval_expr_return(env, expr.as_deref()),
+        Expr::Variant(ident, elems) => eval_expr_variant(env, ident, elems),
+        Expr::Match(expr, cases) => eval_expr_match(env, expr, cases),
     }
+}
+
+fn eval_expr_match(env: EnvRef, expr: &Expr, cases: &[(Ident, Expr)]) -> Result<LoxType, ErrorType> {
+    let test = match eval_expr(env.clone(), expr)? {
+        LoxType::Data(name, variant) => (name, variant),
+        _ => return Err(ErrorType::TypeMismatch("")),
+    };
+
+    for (ident, expr) in cases {
+        println!("test");
+        if test.1 == ident.0 {
+            return eval_expr(env, expr);
+        }
+    }
+
+    Ok(LoxType::Nil)
+}
+
+fn eval_expr_variant(env: EnvRef, ident: &Ident, elems: &[Ident]) -> Result<LoxType, ErrorType> {
+    Ok(LoxType::Data(ident.0.clone(), elems[0].clone().0))
 }
 
 fn eval_expr_return(env: EnvRef, expr: Option<&Expr>) -> Result<LoxType, ErrorType> {
@@ -194,7 +217,7 @@ fn eval_expr_unary(env: EnvRef, op: &str, expr: &Expr) -> Result<LoxType, ErrorT
             String(_) => Err(ErrorType::TypeMismatch("Can't negate a string value")),
             Callable(_) => Err(ErrorType::TypeMismatch("Can't negate a function value")),
             Array(_) => Err(ErrorType::TypeMismatch("Can't negate a function value")),
-            Tuple(_) => todo!(),
+            _ => todo!(),
         },
         _ => Err(ErrorType::TypeMismatch("Missing operator")),
     }
