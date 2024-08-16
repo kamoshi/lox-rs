@@ -1,4 +1,5 @@
 use crate::parser::ast::Expr;
+use core::panic;
 use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use super::{
@@ -16,21 +17,31 @@ pub enum LoxType {
     Array(Vec<LoxType>),
     Tuple(Box<[LoxType]>),
     Callable(Callable),
-    Module(HashMap<String, LoxType>),
-    Data(String, String),
+    Data(usize, usize, Box<[LoxType]>),
+    Type(usize, HashMap<String, LoxType>),
 }
 
 #[derive(Clone)]
-pub(crate) struct Callable(Rc<dyn LoxCallable>);
+pub(crate) enum Callable {
+    Function(Rc<dyn LoxCallable>),
+    Constructor(usize, usize, Option<Rc<dyn LoxCallable>>),
+}
 
 impl Callable {
     pub(crate) fn new(func: Rc<dyn LoxCallable>) -> Self {
-        Self(func)
+        Self::Function(func)
     }
 
     #[inline(always)]
     pub(crate) fn call(&self, arg: &LoxType) -> Result<LoxType, ErrorType> {
-        match self.0.call(arg) {
+        let res = match self {
+            Callable::Function(func) => func.call(arg),
+            Callable::Constructor(_, _, f) => match f {
+                Some(f) => f.call(arg),
+                None => panic!("This data constructor is not callable"),
+            },
+        };
+        match res {
             Err(ErrorType::Return(res)) => Ok(res),
             other => other,
         }
@@ -39,7 +50,10 @@ impl Callable {
 
 impl Display for Callable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[fn]")
+        match self {
+            Callable::Function(_) => write!(f, "[fn]"),
+            Callable::Constructor(_, _, _) => write!(f, "[constructor fn]"),
+        }
     }
 }
 
@@ -74,8 +88,8 @@ impl Display for LoxType {
                 }
                 write!(f, ")")
             },
-            Module(m) => write!(f, "module"),
-            Data(a, b) => write!(f, "{a} {b}"),
+            Type(ty, _) => write!(f, "type {ty}"),
+            Data(a, b, vals) => write!(f, "data {a} {b} {}", vals.len()),
         }
     }
 }
@@ -104,6 +118,23 @@ impl LoxType {
             LoxType::Array(_) => false,
             LoxType::Tuple(_) => false,
             _ => false,
+        }
+    }
+
+    pub(crate) fn get_type(&self) -> (usize, usize) {
+        match self {
+            LoxType::Type(_, _)    => (0, 0),
+            LoxType::Nil           => (1, 0),
+            LoxType::Boolean(_)    => (2, 0),
+            LoxType::Number(_)     => (3, 0),
+            LoxType::String(_)     => (4, 0),
+            LoxType::Array(_)      => (5, 0),
+            LoxType::Tuple(_)      => (6, 0),
+            LoxType::Callable(c)   => match c {
+                Callable::Function(_) => (7, 0),
+                Callable::Constructor(t, v, _) => (*t, *v),
+            },
+            LoxType::Data(t, v, _) => (*t, *v),
         }
     }
 }

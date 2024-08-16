@@ -121,7 +121,7 @@ fn read_token(
                 "true"  => TokenType::True,
                 "let"   => TokenType::Let,
                 "while" => TokenType::While,
-                "variant"   => TokenType::Variant,
+                "data"  => TokenType::Data,
                 "typeclass" => TokenType::Typeclass,
                 "instance"  => TokenType::Instance,
                 "match" => TokenType::Match,
@@ -136,7 +136,11 @@ fn read_token(
                 '|' => Ok((1, Some(TokenType::Pipe))),
                 _ => unreachable!(),
             }
-        }
+        },
+        '-' => match next {
+            Some('>') => Ok((2, Some(TokenType::Arrow))),
+            _ => lex_op(chars),
+        },
         _ => lex_op(chars),
     }
 }

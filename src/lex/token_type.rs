@@ -9,7 +9,7 @@ pub enum TokenType {
     Comma, Dot, Semicolon,
 
     // One or two character tokens
-    Equal, Pipe, Op(String),
+    Equal, Pipe, Arrow, Op(String),
 
     // Literals
     Ident(String), Str(String), Num(f64),
@@ -17,7 +17,7 @@ pub enum TokenType {
     // Keywords
     And, Class, Else, False, Fun, For, If, Nil, Or,
     Return, Super, This, True, Let, While,
-    Typeclass, Instance, Variant, Match,
+    Typeclass, Instance, Data, Match,
 
     Eof,
 }
@@ -56,13 +56,14 @@ impl Display for TokenType {
             Eof             => "EOF".into(),
             Typeclass       => "typeclass".into(),
             Instance        => "instance".into(),
-            Variant         => "variant".into(),
+            Data         => "variant".into(),
 
             Equal  => "equal".into(),
             Pipe   => "pipe".into(),
             Op(op) => format!("op <{op}>").into(),
 
             Match  => "match".into(),
+            Arrow  => "arrow".into(),
         };
 
         write!(f, "{str}")

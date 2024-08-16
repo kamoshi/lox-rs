@@ -1,57 +1,11 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::env::{Env, EnvRef};
+use super::env::EnvRef;
 use super::error::ErrorType;
 use super::types::{Callable, LoxFn, LoxType};
 use crate::interpreter::builtin;
 use crate::parser::ast::{Expr, Ident, Literal};
-
-// pub fn exec(g_env: Option<EnvRef>, stmts: &[Stmt]) -> Result<(), ErrorType> {
-//     let mut env = match g_env {
-//         Some(env) => env,
-//         None => Env::new_ref(),
-//     };
-//
-//     for stmt in stmts {
-//         // lexical scope fix
-//         // scheme style!
-//         if matches!(stmt, Stmt::Var(..)) {
-//             env = Env::wrap(env);
-//         }
-//
-//         exec_stmt(env.clone(), stmt)?;
-//     }
-//
-//     Ok(())
-// }
-
-// fn exec_stmt(env: EnvRef, stmt: &Stmt) -> Result<(), ErrorType> {
-//     match stmt {
-//         Stmt::Var(ident, expr) => exec_stmt_var(env, ident, expr)?,
-//         Stmt::Expression(expr) => exec_stmt_expr(env, expr)?,
-//         Stmt::Block(stmts) => exec(Some(Env::wrap(env)), stmts)?,
-//         Stmt::While(cond, stmt) => exec_stmt_while(env, cond, stmt)?,
-//         // Stmt::Function(n, p, b) => exec_stmt_func(env, n, p, b)?,
-//         Stmt::Return(expr) => exec_stmt_return(env, expr)?,
-//     };
-//     Ok(())
-// }
-
-// fn exec_stmt_func(env: EnvRef, name: &Ident, params: &[Ident], body: &[Stmt]) -> Result<(), ErrorType> {
-//     let mut params = params.iter().rev();
-//     let last = params.next().unwrap();
-//     let mut func = Expr::Lambda(vec![last.clone()], body.to_vec());
-//
-//     for Ident(next) in params {
-//         func = Expr::Lambda(vec![Ident(next.clone())], vec![Stmt::Return(Some(func.into()))])
-//     }
-//
-//     env.borrow_mut()
-//         .define(&name.0, &eval_expr(env.clone(), &func)?);
-//
-//     Ok(())
-// }
 
 fn exec_expr_if(
     env: EnvRef,
@@ -67,11 +21,6 @@ fn exec_expr_if(
         _ => Ok(LoxType::Nil),
     }
 }
-
-// fn exec_stmt_expr(env: EnvRef, expr: &Expr) -> Result<(), ErrorType> {
-//     eval_expr(env, expr)?;
-//     Ok(())
-// }
 
 pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
     match expr {
@@ -90,29 +39,72 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
         Expr::Let(ident, expr) => exec_expr_let(env, ident, expr),
         Expr::While(cond, body) => eval_expr_while(env, cond, body),
         Expr::Return(expr) => eval_expr_return(env, expr.as_deref()),
-        Expr::Variant(ident, elems) => eval_expr_variant(env, ident, elems),
+        Expr::Data(ident, elems) => eval_expr_data(env, ident, elems),
         Expr::Match(expr, cases) => eval_expr_match(env, expr, cases),
+        Expr::Index(expr, ident) => eval_expr_index(env, expr, ident),
+        Expr::Constructor(t, v, fields) => eval_expr_constructor(env, *t, *v, fields),
     }
 }
 
-fn eval_expr_match(env: EnvRef, expr: &Expr, cases: &[(Ident, Expr)]) -> Result<LoxType, ErrorType> {
-    let test = match eval_expr(env.clone(), expr)? {
-        LoxType::Data(name, variant) => (name, variant),
-        _ => return Err(ErrorType::TypeMismatch("")),
+fn eval_expr_constructor(env: EnvRef, t: usize, v: usize, fields: &[String]) -> Result<LoxType, ErrorType> {
+    let test = env.borrow();
+    let mut vals = vec![];
+    for field in fields {
+        vals.push(test.get(field)?);
+    }
+    Ok(LoxType::Data(t, v, vals.into()))
+}
+
+fn eval_expr_index(env: EnvRef, expr: &Expr, ident: &Ident) -> Result<LoxType, ErrorType> {
+    match eval_expr(env, expr)? {
+        LoxType::Type(_, assoc) => Ok(assoc.get(&ident.0).unwrap().clone()),
+        _ => todo!()
+    }
+}
+
+fn eval_expr_match(env: EnvRef, expr: &Expr, cases: &[(Expr, Expr, Box<[String]>)]) -> Result<LoxType, ErrorType> {
+    let id = eval_expr(env.clone(), expr)?;
+    let ty = id.get_type();
+    let vals = match id {
+        LoxType::Data(_, _, vals) => vals,
+        _ => Box::new([]),
     };
 
-    for (ident, expr) in cases {
-        println!("test");
-        if test.1 == ident.0 {
-            return eval_expr(env, expr);
+    for (cond, then, idents) in cases {
+        let test = eval_expr(env.clone(), cond)?.get_type();
+
+        if ty == test {
+            for (k, v) in vals.iter().zip(idents.iter()) {
+                env.borrow_mut().define(v, k);
+            }
+            return eval_expr(env, then);
         }
     }
 
     Ok(LoxType::Nil)
 }
 
-fn eval_expr_variant(env: EnvRef, ident: &Ident, elems: &[Ident]) -> Result<LoxType, ErrorType> {
-    Ok(LoxType::Data(ident.0.clone(), elems[0].clone().0))
+fn eval_expr_data(env: EnvRef, ident: &Ident, elems: &[(Ident, Box<[String]>)]) -> Result<LoxType, ErrorType> {
+    let ty = 123;
+    let mut assoc = vec![];
+
+    for (i, (name, fields)) in elems.iter().enumerate() {
+        if fields.len() == 0 {
+            assoc.push((name.0.clone(), LoxType::Callable(Callable::Constructor(ty, i, None))));
+            continue;
+        }
+        let mut args = fields.iter().rev();
+        let last = args.next().unwrap();
+        let func = args.fold(
+            Expr::Lambda(Ident(last.into()), Expr::Constructor(ty, i, fields.clone()).into()),
+            |acc, next| Expr::Lambda(Ident(next.into()), acc.into())
+        );
+        if let LoxType::Callable(Callable::Function(f)) = eval_expr(env.clone(), &func)? {
+            assoc.push((name.0.clone(), LoxType::Callable(Callable::Constructor(ty, i, Some(f)))))
+        }
+    }
+
+    Ok(LoxType::Type(ty, HashMap::from_iter(assoc)))
 }
 
 fn eval_expr_return(env: EnvRef, expr: Option<&Expr>) -> Result<LoxType, ErrorType> {

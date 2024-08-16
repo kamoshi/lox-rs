@@ -1,12 +1,3 @@
-// #[derive(Debug, Clone)]
-// pub enum Stmt {
-//     Var(Ident, Option<Box<Expr>>),
-//     Expression(Box<Expr>),
-//     While(Box<Expr>, Box<Stmt>),
-//     // Function(Ident, Vec<Ident>, Vec<Stmt>),
-//     Return(Option<Box<Expr>>),
-// }
-
 #[derive(Debug, Clone)]
 pub enum Expr {
     Literal(Literal),
@@ -18,14 +9,16 @@ pub enum Expr {
     Variable(Ident),
     Call(Box<Expr>, Box<Expr>),
     Lambda(Ident, Box<Expr>),
+    Constructor(usize, usize, Box<[String]>),
     Array(Vec<Expr>),
     Tuple(Vec<Expr>),
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
     Block(Box<[Expr]>),
     While(Box<Expr>, Box<Expr>),
     Return(Option<Box<Expr>>),
-    Variant(Ident, Vec<Ident>),
-    Match(Box<Expr>, Box<[(Ident, Expr)]>)
+    Data(Ident, Box<[(Ident, Box<[String]>)]>),
+    Match(Box<Expr>, Box<[(Expr, Expr, Box<[String]>)]>),
+    Index(Box<Expr>, Ident),
 }
 
 #[derive(Debug, Clone)]

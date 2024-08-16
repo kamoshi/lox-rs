@@ -228,7 +228,7 @@ fn expr_block(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 
 fn expression(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     match tokens.first().map(|t| &t.ttype) {
-        Some(TokenType::Variant) => expr_variant(tokens),
+        Some(TokenType::Data)    => expr_data(tokens),
         Some(TokenType::Match)   => expr_match(tokens),
         Some(TokenType::Let)     => expr_let(tokens),
         Some(TokenType::If)      => expr_if(tokens),
@@ -249,25 +249,28 @@ fn expr_match(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     while let Some(Token { ttype: TokenType::Pipe, .. }) = tokens.get(ptr) {
         ptr += 1;       // 1 "|"
 
-        let case = consume_ident(tokens, ptr)?;
-        ptr += 1;       // 1 IDENTIFIER
+        let (n, case) = expression(&tokens[ptr..])?;
+        ptr += n;       // n expression
 
-        consume(tokens, ptr, TokenType::Op("->".into()), ErrorType::ExprLeftover)?;
+        let mut idents = vec![];
+        while let Some(Token { ttype: TokenType::Ident(ref ident), .. }) = tokens.get(ptr) {
+            ptr += 1;
+            idents.push(ident.clone());
+        }
+
+        consume(tokens, ptr, TokenType::Arrow, ErrorType::ExprLeftover)?;
         ptr += 1;       // 1 "->"
 
         let (n, expr) = expression(&tokens[ptr..])?;
         ptr += n;       // n expression
 
-        items.push((case, *expr));
+        items.push((*case, *expr, idents.into()));
     }
 
     Ok((ptr, Expr::Match(matched, items.into()).into()))
 }
 
-
-// exprVariant  → "variant" IDENTIFIER ( "|" IDENTIFIER IDENTIFIER* )*
-
-fn expr_variant(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_data(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;
 
     let name = consume_ident(tokens, ptr)?;
@@ -280,10 +283,17 @@ fn expr_variant(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
         let item = consume_ident(tokens, ptr)?;
         ptr += 1;
 
-        items.push(item)
+        let mut fields = vec![];
+        while let Some(Token { ttype: TokenType::Ident(field), .. }) = tokens.get(ptr) {
+            ptr += 1;
+
+            fields.push(field.to_owned())
+        }
+
+        items.push((item, fields.into()))
     }
 
-    Ok((ptr, Expr::Variant(name, items).into()))
+    Ok((ptr, Expr::Data(name, items.into()).into()))
 }
 
 fn expr_let(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
@@ -381,12 +391,30 @@ fn expr_assign(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 fn call(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
 
-    let (n, mut expr) = primary(tokens)?;
-    ptr += n;       // n callable
+    let (n, mut expr) = index(tokens)?;
+    ptr += n;       // n index
 
-    while let Ok((n, arg)) = primary(&tokens[ptr..]) {
+    while let Ok((n, arg)) = index(&tokens[ptr..]) {
         ptr += n;   // n arg
         expr = Box::new(Expr::Call(expr, arg));
+    }
+
+    Ok((ptr, expr))
+}
+
+fn index(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+    let mut ptr = 0;
+
+    let (n, mut expr) = primary(tokens)?;
+    ptr += n;       // n primary
+
+    if let Some(Token { ttype: TokenType::Dot, .. }) = tokens.get(ptr) {
+        ptr += 1;
+
+        let next = consume_ident(tokens, ptr)?;
+        ptr += 1;
+
+        expr = Expr::Index(expr, next).into();
     }
 
     Ok((ptr, expr))
@@ -508,7 +536,7 @@ fn expr_lambda(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
         args.push(expr);
 
         match tokens.get(ptr) {
-            Some(Token { ttype: TokenType::Op(ref op), .. }) if op == "->" => {
+            Some(Token { ttype: TokenType::Arrow, .. }) => {
                 ptr += 1;   // 1 ->
                 break;
             },

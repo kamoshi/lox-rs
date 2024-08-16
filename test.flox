@@ -19,10 +19,20 @@ let fib = fn n -> {
 
 print $ fib 10;
 
-let o = variant Option
-  | Some
-  | None;
+let Option = data Option
+  | None
+  | Some some;
 
-match o
-  | None -> "this is none"
-  | Some -> "this is some"
+let b = match Option.Some 33
+  | Option.None -> "this is none"
+  | { Option.Some } val -> val;
+
+let Tuple3 = data Tuple3
+  | Tuple3 a b c;
+
+print b;
+
+let xd = Tuple3.Tuple3 1 "abc" false;
+
+match xd
+  | { Tuple3.Tuple3 } a b c -> if {c} a else b;
