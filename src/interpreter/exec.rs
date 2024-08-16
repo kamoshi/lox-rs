@@ -85,7 +85,7 @@ fn eval_expr_match(env: EnvRef, expr: &Expr, cases: &[(Expr, Expr, Box<[String]>
 }
 
 fn eval_expr_data(env: EnvRef, ident: &Ident, elems: &[(Ident, Box<[String]>)]) -> Result<LoxType, ErrorType> {
-    let ty = 123;
+    let ty = env.borrow().new_type(ident.0.clone());
     let mut assoc = vec![];
 
     for (i, (name, fields)) in elems.iter().enumerate() {

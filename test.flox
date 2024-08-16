@@ -36,3 +36,12 @@ let xd = Tuple3.Tuple3 1 "abc" false;
 
 match xd
   | { Tuple3.Tuple3 } a b c -> if {c} a else b;
+
+let Test = data Option
+  | None
+  | Some some;
+
+match Test.None
+  | Option.None -> "none"
+  | Option.Some -> "some"
+  | Test.None   -> "xd"
