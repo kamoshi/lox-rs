@@ -345,16 +345,27 @@ fn expr_data(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Erro
 }
 
 fn expr_let(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
-    let mut ptr = 1;    // 1 = var
+    let mut ptr = 1;    // 1 let
 
     let ident = consume_ident(tokens, ptr)?;
-    ptr += 1;           // 1 = ident
+    ptr += 1;           // 1 ident
+
+    let mut args = vec![];
+    while let Ok(ident) = consume_ident(tokens, ptr) {
+        ptr += 1;       // 1 ident*
+        args.push(ident)
+    }
 
     consume(tokens, ptr, TokenType::Equal, ErrorType::MissingSemicolon)?;
-    ptr += 1;           // 1 = ;
+    ptr += 1;           // 1 =
 
     let (n, expr) = expression(ctx, &tokens[ptr..])?;
-    ptr += n;           // n = expr
+    ptr += n;           // n expr
+
+    let expr = match args.len() {
+        0 => expr,
+        _ => build_function(args, expr).into(),
+    };
 
     Ok((ptr, Expr::Let(ident, expr).into()))
 }
@@ -581,6 +592,16 @@ fn expr_array(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Err
     Ok((ptr, Expr::Array(arr).into()))
 }
 
+fn build_function(args: Vec<Ident>, body: Box<Expr>) -> Expr {
+    let mut args = args.into_iter().rev();
+    let last = args.next().expect("Lambda should have at least one argument.");
+
+    args.fold(
+        Expr::Lambda(last, body),
+        |acc, next| Expr::Lambda(next, acc.into())
+    )
+}
+
 
 fn expr_lambda(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;        // 1 fn
@@ -600,17 +621,10 @@ fn expr_lambda(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Er
         }
     }
 
-    let (n, expr) = expression(ctx, &tokens[ptr..])?;
+    let (n, body) = expression(ctx, &tokens[ptr..])?;
     ptr += n;               // n expr
 
-    let mut args = args.into_iter().rev();
-    let last = args.next().expect("Lambda should have at least one argument.");
-    let func = args.fold(
-        Expr::Lambda(last, expr),
-        |acc, next| Expr::Lambda(next, acc.into())
-    );
-
-    Ok((ptr, func.into()))
+    Ok((ptr, build_function(args, body).into()))
 }
 
 fn matches(token: Option<&Token>, tts: &[TokenType]) -> bool {
