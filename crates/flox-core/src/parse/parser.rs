@@ -94,6 +94,8 @@ impl Default for Context {
             // mul / div
             ("*", (10, 11)),
             ("/", (10, 11)),
+
+            ("|>", (20, 21)),
         ]
             .into_iter()
             .map(|(op, p)| (op.to_string(), p));
