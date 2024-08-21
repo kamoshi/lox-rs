@@ -1,8 +1,8 @@
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 
-use crate::error::LoxError;
-use crate::interpreter::{
+use flox_core::{error::LoxError, parse::parser::Context};
+use crate::rt::{
     self,
     env::{Env, EnvRef},
 };
@@ -11,9 +11,10 @@ use crate::parser;
 
 pub(crate) fn run_repl(lex: bool, parse: bool) {
     let env = Env::new_ref();
-    interpreter::native::populate(env.clone());
+    flox_core::rt::native::populate(env.clone());
 
     let mut rl = DefaultEditor::new().unwrap();
+    let ctx = Context::default();
 
     loop {
         match rl.readline("> ") {
@@ -21,9 +22,10 @@ pub(crate) fn run_repl(lex: bool, parse: bool) {
                 if lex {
                     let _ = lex::tokenize(&line).map(|x| println!("{x:?}"));
                 } else if parse {
-                    match lex::tokenize(&line).map(|tokens| parser::parse(&tokens)) {
+                    match lex::tokenize(&line).map(|tokens| parser::parse(&ctx, &tokens)) {
                         Ok(Ok(res)) => println!("{:#?}", res),
-                        _ => todo!(),
+                        Err(err) => err.report_rich(&line),
+                        Ok(Err(err)) => err.report_rich(&line),
                     };
                 } else {
                     eval(env.clone(), &line);
@@ -54,10 +56,10 @@ fn eval(env: EnvRef, source: &str) {
         Err(error) => return error.report_rich(source),
     };
 
-    let ast = parser::parse(&tokens);
+    let ast = parser::parse(&Context::default(), &tokens);
 
     let result = match ast {
-        Ok((_, ast)) => interpreter::eval_expr(env, &ast).map(|res| print!("{res}")),
+        Ok((_, ast)) => flox_core::rt::eval_expr(env, &ast).map(|res| print!("{res}")),
         Err(error) => return error.report_rich(source),
     };
 

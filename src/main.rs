@@ -1,13 +1,12 @@
-use std::{fs, process};
 use clap::Parser;
+use flox_core::{
+    error::LoxError,
+    lex,
+    parse::parser::{self, Context},
+    rt::{self, env::Env, native::populate, types::LoxType},
+};
+use std::fs;
 
-use crate::error::LoxError;
-use crate::interpreter::{env::Env, native::populate};
-
-mod error;
-mod interpreter;
-mod lex;
-mod parser;
 mod repl;
 
 #[derive(Parser)]
@@ -45,13 +44,13 @@ fn run_file(path: &str) {
     }
 }
 
-fn run(source: &str) -> Result<interpreter::types::LoxType, ()> {
+fn run(source: &str) -> Result<LoxType, ()> {
     let tokens = match lex::tokenize(source) {
         Ok(tokens) => tokens,
         Err(error) => return Err(error.report_rich(source)),
     };
 
-    let ast = match parser::parse(&tokens) {
+    let ast = match parser::parse(&Context::default(), &tokens) {
         Ok((_, ast)) => ast,
         Err(error) => return Err(error.report_rich(source)),
     };
@@ -59,7 +58,7 @@ fn run(source: &str) -> Result<interpreter::types::LoxType, ()> {
     let env = Env::new_ref();
     populate(env.clone());
 
-    match interpreter::eval_expr(env, &ast) {
+    match rt::eval_expr(env, &ast) {
         Ok(res) => Ok(res),
         Err(e) => Err(e.report_rich(source)),
     }

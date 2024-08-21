@@ -147,7 +147,7 @@ fn read_token(
 
 fn lex_op(chars: &[char]) -> Result<(usize, Option<TokenType>), ErrorType> {
     let consumed = chars.iter()
-        .position(|&c| !c.is_ascii_punctuation() || c == '_')
+        .position(|&c| !c.is_ascii_punctuation() || c == '_' || c == '(' || c == ')')
         .unwrap_or(chars.len());
 
     let text = String::from_iter(&chars[..consumed]);

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::lex::{token::Token, token_type::TokenType};
 use super::ast::{Expr, Literal, Ident};
 use super::error::{Error, ErrorType};
@@ -57,10 +59,56 @@ use super::error::{Error, ErrorType};
 // lambda       → "fn" ( IDENTIFIER )+ "->" expression ;
 
 
-pub fn parse(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+#[derive(Debug)]
+pub struct Context {
+    precedence: HashMap<String, (usize, usize)>,
+}
+
+impl Context {
+    fn get_precedence(&self, op: &str) -> (usize, usize) {
+        self.precedence.get(op).cloned().unwrap_or_default()
+    }
+
+    fn set_precedence(&mut self, op: String, p: (usize, usize)) {
+        self.precedence.insert(op, p);
+    }
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        let p = [
+            // logic
+            ("||", (1, 2)),
+            ("&&", (2, 3)),
+            // equal
+            ("!=", (3, 4)),
+            ("==", (3, 4)),
+            // compare
+            (">", (4, 5)),
+            (">=", (4, 5)),
+            ("<", (4, 5)),
+            ("<=", (4, 5)),
+            // add / sub
+            ("+", (5, 6)),
+            ("-", (5, 6)),
+            // mul / div
+            ("*", (10, 11)),
+            ("/", (10, 11)),
+        ]
+            .into_iter()
+            .map(|(op, p)| (op.to_string(), p));
+
+        Self {
+            precedence: HashMap::from_iter(p),
+        }
+    }
+}
+
+
+pub fn parse(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
 
-    let (n, expr) = sequence(tokens)?;
+    let (n, expr) = sequence(ctx, tokens)?;
     ptr += n;           // n = expr
 
     consume(tokens, ptr, TokenType::Eof, ErrorType::ExprLeftover)?;
@@ -70,7 +118,7 @@ pub fn parse(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 }
 
 /// expr1; expr2; expr3
-fn sequence(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn sequence(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
     let mut exprs = vec![];
 
@@ -82,7 +130,7 @@ fn sequence(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
                 ptr += 1;    // 1 ;
             },
             _ => {
-                let (n, expr) = expression(&tokens[ptr..])?;
+                let (n, expr) = expression(ctx, &tokens[ptr..])?;
                 ptr += n;    // n expr
                 exprs.push(*expr);
             },
@@ -105,7 +153,7 @@ fn sequence(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 //     function(tokens)
 // }
 
-fn parameters(tokens: &[Token]) -> Result<(usize, Vec<Ident>), Error> {
+fn parameters(ctx: &Context, tokens: &[Token]) -> Result<(usize, Vec<Ident>), Error> {
     let mut ptr = 1;    // 1 = (
     let mut params = vec![];
 
@@ -139,10 +187,10 @@ fn parameters(tokens: &[Token]) -> Result<(usize, Vec<Ident>), Error> {
 //     }
 // }
 
-fn expr_block(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_block(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;    // 1 = {
 
-    let (n, seq) = sequence(&tokens[ptr..])?;
+    let (n, seq) = sequence(ctx, &tokens[ptr..])?;
     ptr += n;
 
     consume(tokens, ptr, TokenType::BraceR, ErrorType::MissingBrace)?;
@@ -226,30 +274,30 @@ fn expr_block(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 // }
 
 
-fn expression(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expression(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     match tokens.first().map(|t| &t.ttype) {
-        Some(TokenType::Data)    => expr_data(tokens),
-        Some(TokenType::Match)   => expr_match(tokens),
-        Some(TokenType::Let)     => expr_let(tokens),
-        Some(TokenType::If)      => expr_if(tokens),
-        Some(TokenType::While)   => expr_while(tokens),
-        Some(TokenType::BraceL)  => expr_block(tokens),
-        Some(TokenType::Return)  => expr_return(tokens),
-        _ => expr_assign(tokens),
+        Some(TokenType::Data)    => expr_data(ctx, tokens),
+        Some(TokenType::Match)   => expr_match(ctx, tokens),
+        Some(TokenType::Let)     => expr_let(ctx, tokens),
+        Some(TokenType::If)      => expr_if(ctx, tokens),
+        Some(TokenType::While)   => expr_while(ctx, tokens),
+        Some(TokenType::BraceL)  => expr_block(ctx, tokens),
+        Some(TokenType::Return)  => expr_return(ctx, tokens),
+        _ => expr_assign(ctx, tokens),
     }
 }
 
-fn expr_match(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_match(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;    // 1 "match"
 
-    let (n, matched) = expression(&tokens[ptr..])?;
+    let (n, matched) = expression(ctx, &tokens[ptr..])?;
     ptr += n;           // n expression
 
     let mut items = vec![];
     while let Some(Token { ttype: TokenType::Pipe, .. }) = tokens.get(ptr) {
         ptr += 1;       // 1 "|"
 
-        let (n, case) = expression(&tokens[ptr..])?;
+        let (n, case) = expression(ctx, &tokens[ptr..])?;
         ptr += n;       // n expression
 
         let mut idents = vec![];
@@ -261,7 +309,7 @@ fn expr_match(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
         consume(tokens, ptr, TokenType::Arrow, ErrorType::ExprLeftover)?;
         ptr += 1;       // 1 "->"
 
-        let (n, expr) = expression(&tokens[ptr..])?;
+        let (n, expr) = expression(ctx, &tokens[ptr..])?;
         ptr += n;       // n expression
 
         items.push((*case, *expr, idents.into()));
@@ -270,7 +318,7 @@ fn expr_match(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((ptr, Expr::Match(matched, items.into()).into()))
 }
 
-fn expr_data(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_data(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;
 
     let name = consume_ident(tokens, ptr)?;
@@ -296,7 +344,7 @@ fn expr_data(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((ptr, Expr::Data(name, items.into()).into()))
 }
 
-fn expr_let(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_let(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;    // 1 = var
 
     let ident = consume_ident(tokens, ptr)?;
@@ -305,25 +353,25 @@ fn expr_let(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     consume(tokens, ptr, TokenType::Equal, ErrorType::MissingSemicolon)?;
     ptr += 1;           // 1 = ;
 
-    let (n, expr) = expression(&tokens[ptr..])?;
+    let (n, expr) = expression(ctx, &tokens[ptr..])?;
     ptr += n;           // n = expr
 
     Ok((ptr, Expr::Let(ident, expr).into()))
 }
 
-fn expr_if(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_if(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;    // 1 = if
 
-    let (n, cond) = expression(&tokens[ptr..])?;
+    let (n, cond) = expression(ctx, &tokens[ptr..])?;
     ptr += n;           // n = expr
 
-    let (n, branch_t) = expression(&tokens[ptr..])?;
+    let (n, branch_t) = expression(ctx, &tokens[ptr..])?;
     ptr += n;           // n = true branch
 
     let branch_f = match matches(tokens.get(ptr), &[TokenType::Else]) {
         true => {
             ptr += 1;   // 1 =? else
-            let (n, branch_f) = expression(&tokens[ptr..])?;
+            let (n, branch_f) = expression(ctx, &tokens[ptr..])?;
             ptr += n;   // n =? false branch
             Some(branch_f)
         },
@@ -333,25 +381,25 @@ fn expr_if(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((ptr, Expr::If(cond, branch_t, branch_f).into()))
 }
 
-fn expr_while(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_while(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;    // 1 "while"
     //
-    let (n, cond) = expression(&tokens[ptr..])?;
+    let (n, cond) = expression(ctx, &tokens[ptr..])?;
     ptr += n;           // n expr
 
-    let (n, expr) = expression(&tokens[ptr..])?;
+    let (n, expr) = expression(ctx, &tokens[ptr..])?;
     ptr += n;           // n expr
 
     Ok((ptr, Expr::While(cond, expr).into()))
 }
 
-fn expr_return(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_return(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;    // 1 "return"
 
     let (n, expr) = match tokens.get(ptr) {
         Some(Token { ttype: TokenType::Semicolon, .. }) => (0, None),
         _ => {
-            let (n, expr) = expression(&tokens[ptr..])?;
+            let (n, expr) = expression(ctx, &tokens[ptr..])?;
             (n, Some(expr))
         }
     };
@@ -360,15 +408,15 @@ fn expr_return(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((ptr, Expr::Return(expr).into()))
 }
 
-fn expr_assign(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_assign(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
 
-    let (n, expr) = pratt(tokens, 0)?;
+    let (n, expr) = pratt(ctx, tokens, 0)?;
     ptr += n;           // n = expr
 
     match tokens.get(n).map(|t| &t.ttype) {
         Some(TokenType::Equal) => {
-            let (c_next, next) = expr_assign(&tokens[n + 1..])?;
+            let (c_next, next) = expr_assign(ctx, &tokens[n + 1..])?;
 
             match *expr {
                 Expr::Variable(ident) => Ok((n + 1 + c_next, Box::new(Expr::Assign(ident, next)))),
@@ -388,13 +436,13 @@ fn expr_assign(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 }
 
 /// callable arg1 arg2 ...
-fn call(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn call(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
 
-    let (n, mut expr) = index(tokens)?;
+    let (n, mut expr) = index(ctx, tokens)?;
     ptr += n;       // n index
 
-    while let Ok((n, arg)) = index(&tokens[ptr..]) {
+    while let Ok((n, arg)) = index(ctx, &tokens[ptr..]) {
         ptr += n;   // n arg
         expr = Box::new(Expr::Call(expr, arg));
     }
@@ -402,10 +450,10 @@ fn call(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((ptr, expr))
 }
 
-fn index(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn index(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
 
-    let (n, mut expr) = primary(tokens)?;
+    let (n, mut expr) = primary(ctx, tokens)?;
     ptr += n;       // n primary
 
     if let Some(Token { ttype: TokenType::Dot, .. }) = tokens.get(ptr) {
@@ -420,7 +468,7 @@ fn index(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((ptr, expr))
 }
 
-fn arguments(tokens: &[Token]) -> Result<(usize, Vec<Expr>), Error> {
+fn arguments(ctx: &Context, tokens: &[Token]) -> Result<(usize, Vec<Expr>), Error> {
     let mut ptr = 0;
     let mut args = vec![];
 
@@ -428,7 +476,7 @@ fn arguments(tokens: &[Token]) -> Result<(usize, Vec<Expr>), Error> {
     if matches(tokens.get(ptr), &[TokenType::ParenR]) { return Ok((ptr, args)) }
 
     loop {
-        let (n, expr) = expression(&tokens[ptr..])?;
+        let (n, expr) = expression(ctx, &tokens[ptr..])?;
         args.push(*expr);
         ptr += n;   // n =? expr
 
@@ -441,7 +489,7 @@ fn arguments(tokens: &[Token]) -> Result<(usize, Vec<Expr>), Error> {
     Ok((ptr, args))
 }
 
-fn primary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn primary(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let next = &tokens[0];
 
     use TokenType as TT;
@@ -453,9 +501,9 @@ fn primary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
         TT::True        => (1, Box::new(Expr::Literal(True))),
         TT::False       => (1, Box::new(Expr::Literal(False))),
         TT::Nil         => (1, Box::new(Expr::Literal(Nil))),
-        TT::Fun         => expr_lambda(tokens)?,
-        TT::ParenL      => expr_parenthesized(tokens)?,
-        TT::SquareL     => expr_array(tokens)?,
+        TT::Fun         => expr_lambda(ctx, tokens)?,
+        TT::ParenL      => expr_parenthesized(ctx, tokens)?,
+        TT::SquareL     => expr_array(ctx, tokens)?,
         tt => return Err(Error {
             ttype: ErrorType::InvalidToken(tt.to_owned()),
             line: next.line,
@@ -467,14 +515,22 @@ fn primary(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((consumed, variant))
 }
 
-fn expr_parenthesized(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_parenthesized(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;        // 1 = (
 
     if let Some(Token { ttype: TokenType::ParenR, .. }) = tokens.get(ptr) {
         return Ok((2, Box::new(Expr::Literal(Literal::Nil))))
     }
 
-    let (n, expr) = expression(&tokens[ptr..])?;
+    if let (
+        Some(Token { ttype: TokenType::Op(ref op), .. }),
+        Some(Token { ttype: TokenType::ParenR, .. })
+    ) = (tokens.get(ptr), tokens.get(ptr+1)) {
+        ptr += 2;
+        return Ok((ptr, Expr::Variable(Ident(op.into())).into()))
+    }
+
+    let (n, expr) = expression(ctx, &tokens[ptr..])?;
     ptr += n;               // n = expr
 
     if let Some(Token { ttype: TokenType::Comma, .. }) = tokens.get(ptr) {
@@ -488,7 +544,7 @@ fn expr_parenthesized(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 
         // Parse subsequent expressions, separated by commas
         while let Some(_) = tokens.get(ptr) {
-            let (n, next_expr) = expression(&tokens[ptr..])?;
+            let (n, next_expr) = expression(ctx, &tokens[ptr..])?;
             elements.push(*next_expr);
             ptr += n;
 
@@ -513,10 +569,10 @@ fn expr_parenthesized(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     Ok((ptr, Box::new(Expr::Grouping(expr))))
 }
 
-fn expr_array(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_array(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;        // [
 
-    let (n, arr) = arguments(&tokens[ptr..])?;
+    let (n, arr) = arguments(ctx, &tokens[ptr..])?;
     ptr += n;
 
     consume(tokens, ptr, TokenType::SquareR, ErrorType::MissingParenR)?;
@@ -526,7 +582,7 @@ fn expr_array(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
 }
 
 
-fn expr_lambda(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
+fn expr_lambda(ctx: &Context, tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 1;        // 1 fn
     let mut args = vec![];
 
@@ -544,7 +600,7 @@ fn expr_lambda(tokens: &[Token]) -> Result<(usize, Box<Expr>), Error> {
         }
     }
 
-    let (n, expr) = expression(&tokens[ptr..])?;
+    let (n, expr) = expression(ctx, &tokens[ptr..])?;
     ptr += n;               // n expr
 
     let mut args = args.into_iter().rev();
@@ -597,49 +653,28 @@ fn consume_ident(
     }
 }
 
-// logicOr      → logicAnd ( "||" logicAnd )* ;
-// logicAnd     → equality ( "&&" equality )* ;
-// equality     → comparison ( ( "!=" | "==" ) comparison )* ;
-// comparison   → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-// term         → factor ( ( "-" | "+" ) factor )* ;
-// factor       → unary ( ( "/" | "*" ) unary )* ;
-// unary        → ( "!" | "-" ) unary
-
-fn precedence(str: &str, unary: bool) -> (i32, i32) {
-    if unary { return (20, 20) };
-    match str {
-        "||" => (1, 1),
-        "&&" => (2, 2),
-        "!=" | "==" => (3, 3),
-        ">" | ">=" | "<" | "<=" => (4, 4),
-        "-" | "+" => (5, 5),
-        "/" | "*" => (10, 10),
-        _ => (0, 0),
-    }
-}
-
-fn pratt(tokens: &[Token], min_p: i32) -> Result<(usize, Box<Expr>), Error> {
+fn pratt(ctx: &Context, tokens: &[Token], min_p: usize) -> Result<(usize, Box<Expr>), Error> {
     let mut ptr = 0;
 
     let mut expr_l = match tokens[ptr] {
         Token { ttype: TokenType::Op(ref op), .. } => {
-            let (_, bp_r) = precedence(op, true);
+            let (_, bp_r) = (100, 100); // hardcoded for now
             ptr += 1;
 
-            let (n, expr_r) = pratt(&tokens[ptr..], bp_r)?;
+            let (n, expr_r) = pratt(ctx, &tokens[ptr..], bp_r)?;
             ptr += n;
 
             Box::new(Expr::Unary(op.into(), expr_r))
         }
         _ => {
-            let (n, expr_l) = call(tokens)?;
+            let (n, expr_l) = call(ctx, tokens)?;
             ptr += n;
             expr_l
         },
     };
 
     while let Some(TokenType::Op(ref op)) = tokens.get(ptr).map(|t| &t.ttype) {
-        let (bp_l, bp_r) = precedence(op, false);
+        let (bp_l, bp_r) = ctx.get_precedence(op);
 
         if bp_l < min_p {
             break;
@@ -647,7 +682,7 @@ fn pratt(tokens: &[Token], min_p: i32) -> Result<(usize, Box<Expr>), Error> {
 
         ptr += 1;
 
-        let (n, expr_r) = pratt(&tokens[ptr..], bp_r + 1)?;
+        let (n, expr_r) = pratt(ctx, &tokens[ptr..], bp_r)?;
         ptr += n;
 
         expr_l = Box::new(Expr::Binary(expr_l, op.into(), expr_r));

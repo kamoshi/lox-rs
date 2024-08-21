@@ -4,8 +4,8 @@ use std::rc::Rc;
 use super::env::EnvRef;
 use super::error::ErrorType;
 use super::types::{Callable, LoxFn, LoxType};
-use crate::interpreter::builtin;
-use crate::parser::ast::{Expr, Ident, Literal};
+use crate::rt::builtin;
+use crate::parse::ast::{Expr, Ident, Literal};
 
 fn exec_expr_if(
     env: EnvRef,

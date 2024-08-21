@@ -1,4 +1,4 @@
-use crate::parser::ast::Expr;
+use crate::parse::ast::Expr;
 use core::panic;
 use std::{collections::HashMap, fmt::Display, rc::Rc};
 

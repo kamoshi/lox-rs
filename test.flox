@@ -44,4 +44,6 @@ let Test = data Option
 match Test.None
   | Option.None -> "none"
   | Option.Some -> "some"
-  | Test.None   -> "xd"
+  | Test.None   -> fn a b -> a + b
+
+2 3
