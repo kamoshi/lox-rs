@@ -48,11 +48,11 @@ impl FloxError for ParserError {
     }
 
     fn report_rich(&self, source: &str) -> String {
-        self.report();
+        let report = self.report();
 
         let line_str = source.lines().nth(self.line).unwrap();
         let marker = (0..self.offset).map(|_| ' ').collect::<String>();
         let arrows = (0..self.length).map(|_| '^').collect::<String>();
-        format!("{line_str}\n{marker}{arrows}")
+        format!("{report}\n\n{line_str}\n{marker}{arrows}")
     }
 }

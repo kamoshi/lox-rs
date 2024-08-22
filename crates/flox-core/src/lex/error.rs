@@ -29,11 +29,11 @@ impl FloxError for LexerError {
     }
 
     fn report_rich(&self, source: &str) -> String {
-        self.report();
+        let report = self.report();
 
         let line_str = source.lines().nth(self.line).unwrap();
         let marker = (0..self.offset).map(|_| ' ').collect::<String>();
 
-        format!("{line_str}\n{marker}^")
+        format!("{report}\n\n{line_str}\n{marker}^")
     }
 }
