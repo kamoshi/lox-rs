@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::error::ErrorType;
+use super::error::RuntimeErrorKind;
 use super::types::LoxType;
 
 struct Registry {
@@ -36,22 +36,22 @@ impl Env {
         self.inner.insert(k.into(), v.clone());
     }
 
-    pub fn get(&self, k: &str) -> Result<LoxType, ErrorType> {
+    pub fn get(&self, k: &str) -> Result<LoxType, RuntimeErrorKind> {
         match (self.inner.get(k), &self.outer) {
             (Some(v), _)        => Ok(v.clone()),
             (None, Some(outer)) => outer.borrow().get(k),
-            (None, None)        => { println!("{k}"); Err(ErrorType::EnvNilAccess) },
+            (None, None)        => { println!("{k}"); Err(RuntimeErrorKind::EnvNilAccess) },
         }
     }
 
-    pub fn set(&mut self, k: &str, v: &LoxType) -> Result<LoxType, ErrorType> {
+    pub fn set(&mut self, k: &str, v: &LoxType) -> Result<LoxType, RuntimeErrorKind> {
         match (self.inner.contains_key(k), &self.outer) {
             (true, _)               => {
                 self.inner.insert(k.into(), v.clone());
                 Ok(v.clone())
             },
             (false, Some(outer))    => outer.borrow_mut().set(k, v),
-            (false, None)           => Err(ErrorType::UndefinedAssign),
+            (false, None)           => Err(RuntimeErrorKind::UndefinedAssign),
         }
     }
 

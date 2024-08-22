@@ -1,38 +1,39 @@
 use std::borrow::Cow;
 
-use crate::error::LoxError;
+use crate::error::FloxError;
 
 
-pub enum ErrorType {
+pub enum LexerErrorKind {
     UnterminatedString,
     MalformedNumber,
 }
 
-pub struct Error {
-    pub ttype: ErrorType,
+pub struct LexerError {
+    pub kind: LexerErrorKind,
     pub line: usize,
     pub offset: usize,
 }
 
-impl LoxError for Error {
-    fn report(&self) {
+impl FloxError for LexerError {
+    fn report(&self) -> String {
         let line = self.line + 1;
         let offset = self.offset + 1;
 
-        use ErrorType::*;
-        let message: Cow<str> = match self.ttype {
+        use LexerErrorKind::*;
+        let message: Cow<str> = match self.kind {
             UnterminatedString      => "Unterminated string".into(),
             MalformedNumber         => "Couldn't parse number".into(),
         };
 
-        eprintln!("Error diagnostics:\nL{line}:{offset} {message}");
+        format!("Lexer error:\nL{line}:{offset} {message}")
     }
 
-    fn report_rich(&self, source: &str) {
+    fn report_rich(&self, source: &str) -> String {
         self.report();
 
         let line_str = source.lines().nth(self.line).unwrap();
         let marker = (0..self.offset).map(|_| ' ').collect::<String>();
-        eprintln!("{line_str}\n{marker}^");
+
+        format!("{line_str}\n{marker}^")
     }
 }

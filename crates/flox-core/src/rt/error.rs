@@ -1,27 +1,27 @@
-use crate::error::LoxError;
+use crate::error::FloxError;
 use super::types::LoxType;
 
 
-pub enum ErrorType {
+pub enum RuntimeErrorKind {
     TypeMismatch(&'static str),
     EnvNilAccess,
     UndefinedAssign,
     Return(LoxType)
 }
 
-impl LoxError for ErrorType {
-    fn report(&self) {
+impl FloxError for RuntimeErrorKind {
+    fn report(&self) -> String {
         let message = match self {
-            ErrorType::TypeMismatch(s)  => format!("Type mismatch: {s}"),
-            ErrorType::EnvNilAccess     => "Variable doesn't exist".into(),
-            ErrorType::UndefinedAssign  => "Tried to assign to undefined variable".into(),
-            ErrorType::Return(_)        => "Return can only be called in functions".into(),
+            RuntimeErrorKind::TypeMismatch(s)  => format!("Type mismatch: {s}"),
+            RuntimeErrorKind::EnvNilAccess     => "Variable doesn't exist".into(),
+            RuntimeErrorKind::UndefinedAssign  => "Tried to assign to undefined variable".into(),
+            RuntimeErrorKind::Return(_)        => "Return can only be called in functions".into(),
         };
 
-        eprintln!("{message}");
+        format!("{message}")
     }
 
-    fn report_rich(&self, source: &str) {
+    fn report_rich(&self, _: &str) -> String {
         self.report()
     }
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::env::EnvRef;
-use super::error::ErrorType;
+use super::error::RuntimeErrorKind;
 use super::types::{Callable, LoxFn, LoxType};
 use crate::rt::builtin;
 use crate::parse::ast::{Expr, Ident, Literal};
@@ -12,7 +12,7 @@ fn exec_expr_if(
     cond: &Expr,
     t: &Expr,
     f: &Option<Box<Expr>>,
-) -> Result<LoxType, ErrorType> {
+) -> Result<LoxType, RuntimeErrorKind> {
     let cond = eval_expr(env.clone(), cond)?;
 
     match (cond.is_truthy(), f) {
@@ -22,7 +22,7 @@ fn exec_expr_if(
     }
 }
 
-pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
+pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, RuntimeErrorKind> {
     match expr {
         Expr::Literal(literal) => Ok(eval_expr_literal(literal)),
         Expr::Unary(op, expr) => eval_expr_unary(env, op, expr),
@@ -46,7 +46,7 @@ pub fn eval_expr(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
     }
 }
 
-fn eval_expr_constructor(env: EnvRef, t: usize, v: usize, fields: &[String]) -> Result<LoxType, ErrorType> {
+fn eval_expr_constructor(env: EnvRef, t: usize, v: usize, fields: &[String]) -> Result<LoxType, RuntimeErrorKind> {
     let test = env.borrow();
     let mut vals = vec![];
     for field in fields {
@@ -55,14 +55,14 @@ fn eval_expr_constructor(env: EnvRef, t: usize, v: usize, fields: &[String]) -> 
     Ok(LoxType::Data(t, v, vals.into()))
 }
 
-fn eval_expr_index(env: EnvRef, expr: &Expr, ident: &Ident) -> Result<LoxType, ErrorType> {
+fn eval_expr_index(env: EnvRef, expr: &Expr, ident: &Ident) -> Result<LoxType, RuntimeErrorKind> {
     match eval_expr(env, expr)? {
         LoxType::Type(_, assoc) => Ok(assoc.get(&ident.0).unwrap().clone()),
         _ => todo!()
     }
 }
 
-fn eval_expr_match(env: EnvRef, expr: &Expr, cases: &[(Expr, Expr, Box<[String]>)]) -> Result<LoxType, ErrorType> {
+fn eval_expr_match(env: EnvRef, expr: &Expr, cases: &[(Expr, Expr, Box<[String]>)]) -> Result<LoxType, RuntimeErrorKind> {
     let id = eval_expr(env.clone(), expr)?;
     let ty = id.get_type();
     let vals = match id {
@@ -84,7 +84,7 @@ fn eval_expr_match(env: EnvRef, expr: &Expr, cases: &[(Expr, Expr, Box<[String]>
     Ok(LoxType::Nil)
 }
 
-fn eval_expr_data(env: EnvRef, ident: &Ident, elems: &[(Ident, Box<[String]>)]) -> Result<LoxType, ErrorType> {
+fn eval_expr_data(env: EnvRef, ident: &Ident, elems: &[(Ident, Box<[String]>)]) -> Result<LoxType, RuntimeErrorKind> {
     let ty = env.borrow().new_type(ident.0.clone());
     let mut assoc = vec![];
 
@@ -107,16 +107,16 @@ fn eval_expr_data(env: EnvRef, ident: &Ident, elems: &[(Ident, Box<[String]>)]) 
     Ok(LoxType::Type(ty, HashMap::from_iter(assoc)))
 }
 
-fn eval_expr_return(env: EnvRef, expr: Option<&Expr>) -> Result<LoxType, ErrorType> {
+fn eval_expr_return(env: EnvRef, expr: Option<&Expr>) -> Result<LoxType, RuntimeErrorKind> {
     let res = match expr {
         Some(expr) => eval_expr(env, expr)?,
         None => LoxType::Nil,
     };
 
-    Err(ErrorType::Return(res))
+    Err(RuntimeErrorKind::Return(res))
 }
 
-fn eval_expr_while(env: EnvRef, cond: &Expr, body: &Expr) -> Result<LoxType, ErrorType> {
+fn eval_expr_while(env: EnvRef, cond: &Expr, body: &Expr) -> Result<LoxType, RuntimeErrorKind> {
     let mut res = LoxType::Nil;
     while eval_expr(env.clone(), cond)?.is_truthy() {
         res = eval_expr(env.clone(), body)?;
@@ -124,13 +124,13 @@ fn eval_expr_while(env: EnvRef, cond: &Expr, body: &Expr) -> Result<LoxType, Err
     Ok(res)
 }
 
-fn exec_expr_let(env: EnvRef, ident: &Ident, expr: &Expr) -> Result<LoxType, ErrorType> {
+fn exec_expr_let(env: EnvRef, ident: &Ident, expr: &Expr) -> Result<LoxType, RuntimeErrorKind> {
     let expr = eval_expr(env.clone(), expr)?;
     env.borrow_mut().define(&ident.0, &expr);
     Ok(expr)
 }
 
-fn exec_expr_block(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
+fn exec_expr_block(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, RuntimeErrorKind> {
     let mut ret = LoxType::Nil;
 
     for expr in exprs {
@@ -140,7 +140,7 @@ fn exec_expr_block(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
     Ok(ret)
 }
 
-fn eval_expr_tuple(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
+fn eval_expr_tuple(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, RuntimeErrorKind> {
     let mut arr = vec![];
     for expr in exprs {
         arr.push(eval_expr(env.clone(), expr)?);
@@ -148,7 +148,7 @@ fn eval_expr_tuple(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
     Ok(LoxType::Tuple(arr.into()))
 }
 
-fn eval_expr_array(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
+fn eval_expr_array(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, RuntimeErrorKind> {
     let mut arr = vec![];
     for expr in exprs {
         arr.push(eval_expr(env.clone(), expr)?);
@@ -156,12 +156,12 @@ fn eval_expr_array(env: EnvRef, exprs: &[Expr]) -> Result<LoxType, ErrorType> {
     Ok(LoxType::Array(arr))
 }
 
-fn eval_lambda(env: EnvRef, param: &Ident, body: &Expr) -> Result<LoxType, ErrorType> {
+fn eval_lambda(env: EnvRef, param: &Ident, body: &Expr) -> Result<LoxType, RuntimeErrorKind> {
     let x = Rc::new(LoxFn::new(param.0.clone(), body.clone().into(), env.clone()));
     Ok(LoxType::Callable(Callable::new(x)))
 }
 
-fn eval_expr_call(env: EnvRef, callee: &Expr, arg: &Expr) -> Result<LoxType, ErrorType> {
+fn eval_expr_call(env: EnvRef, callee: &Expr, arg: &Expr) -> Result<LoxType, RuntimeErrorKind> {
     let callee = eval_expr(env.clone(), callee)?;
     let arg = eval_expr(env.clone(), arg)?;
 
@@ -169,16 +169,16 @@ fn eval_expr_call(env: EnvRef, callee: &Expr, arg: &Expr) -> Result<LoxType, Err
         LoxType::Callable(c) => c.call(&arg),
         _ => {
             println!("Can't call {}", callee);
-            Err(ErrorType::TypeMismatch("Can't call this value"))
+            Err(RuntimeErrorKind::TypeMismatch("Can't call this value"))
         },
     }
 }
 
-fn eval_expr_variable(env: EnvRef, ident: &Ident) -> Result<LoxType, ErrorType> {
+fn eval_expr_variable(env: EnvRef, ident: &Ident) -> Result<LoxType, RuntimeErrorKind> {
     env.borrow().get(&ident.0)
 }
 
-fn eval_expr_assign(env: EnvRef, ident: &Ident, expr: &Expr) -> Result<LoxType, ErrorType> {
+fn eval_expr_assign(env: EnvRef, ident: &Ident, expr: &Expr) -> Result<LoxType, RuntimeErrorKind> {
     let value = eval_expr(env.clone(), expr)?;
 
     env.borrow_mut().set(&ident.0, &value)?;
@@ -196,26 +196,26 @@ fn eval_expr_literal(literal: &Literal) -> LoxType {
     }
 }
 
-fn eval_expr_unary(env: EnvRef, op: &str, expr: &Expr) -> Result<LoxType, ErrorType> {
+fn eval_expr_unary(env: EnvRef, op: &str, expr: &Expr) -> Result<LoxType, RuntimeErrorKind> {
     let value = eval_expr(env, expr)?;
 
     use LoxType::*;
     match op {
         "!" => Ok(LoxType::Boolean(!value.is_truthy())),
         "-" => match value {
-            Nil => Err(ErrorType::TypeMismatch("Can't negate a nil value")),
-            Boolean(_) => Err(ErrorType::TypeMismatch("Can't negate a boolean value")),
+            Nil => Err(RuntimeErrorKind::TypeMismatch("Can't negate a nil value")),
+            Boolean(_) => Err(RuntimeErrorKind::TypeMismatch("Can't negate a boolean value")),
             Number(f) => Ok(Number(-f)),
-            String(_) => Err(ErrorType::TypeMismatch("Can't negate a string value")),
-            Callable(_) => Err(ErrorType::TypeMismatch("Can't negate a function value")),
-            Array(_) => Err(ErrorType::TypeMismatch("Can't negate a function value")),
+            String(_) => Err(RuntimeErrorKind::TypeMismatch("Can't negate a string value")),
+            Callable(_) => Err(RuntimeErrorKind::TypeMismatch("Can't negate a function value")),
+            Array(_) => Err(RuntimeErrorKind::TypeMismatch("Can't negate a function value")),
             _ => todo!(),
         },
-        _ => Err(ErrorType::TypeMismatch("Missing operator")),
+        _ => Err(RuntimeErrorKind::TypeMismatch("Missing operator")),
     }
 }
 
-fn eval_expr_binary(env: EnvRef, l: &Expr, op: &str, r: &Expr) -> Result<LoxType, ErrorType> {
+fn eval_expr_binary(env: EnvRef, l: &Expr, op: &str, r: &Expr) -> Result<LoxType, RuntimeErrorKind> {
     let l = eval_expr(env.clone(), l)?;
     let r = eval_expr(env.clone(), r)?;
 
@@ -234,10 +234,10 @@ fn eval_expr_binary(env: EnvRef, l: &Expr, op: &str, r: &Expr) -> Result<LoxType
         "&&" => builtin::logic_and(env, l, r),
         "$" => builtin::apply(env, l, r),
         "|>" => builtin::pipe(env, l, r),
-        _ => Err(ErrorType::TypeMismatch("Missing operator")),
+        _ => Err(RuntimeErrorKind::TypeMismatch("Missing operator")),
     }
 }
 
-fn eval_expr_grouping(env: EnvRef, expr: &Expr) -> Result<LoxType, ErrorType> {
+fn eval_expr_grouping(env: EnvRef, expr: &Expr) -> Result<LoxType, RuntimeErrorKind> {
     eval_expr(env, expr)
 }

@@ -1,8 +1,8 @@
 use crate::lex::{token::Token, token_type::TokenType};
-use super::error::{Error, ErrorType};
+use super::error::{LexerError, LexerErrorKind};
 
 
-pub fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
+pub fn tokenize(source: &str) -> Result<Vec<Token>, LexerError> {
     let mut tokens = vec![];
 
     for (line, line_str) in source.lines().enumerate() {
@@ -12,7 +12,7 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
         while offset < chars.len() {
             let (length, token) = match read_token(&chars[offset..]) {
                 Ok(lexed) => lexed,
-                Err(ttype) => return Err(Error { ttype, line, offset }),
+                Err(ttype) => return Err(LexerError { kind: ttype, line, offset }),
             };
 
             if let Some(ttype) = token {
@@ -35,7 +35,7 @@ pub fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
 
 fn read_token(
     chars: &[char]
-) -> Result<(usize, Option<TokenType>), ErrorType> {
+) -> Result<(usize, Option<TokenType>), LexerErrorKind> {
     let curr = chars[0];
     let next = chars.get(1);
     match curr {
@@ -70,7 +70,7 @@ fn read_token(
             let consumed = chars[1..].iter().position(|&c| c == '"').map(|n| n + 2);
             let consumed = match consumed {
                 Some(n) => n,
-                None => return Err(ErrorType::UnterminatedString),
+                None => return Err(LexerErrorKind::UnterminatedString),
             };
             let literal = String::from_iter(&chars[1..consumed - 1]);
             Ok((consumed, Some(TokenType::Str(literal))))
@@ -96,7 +96,7 @@ fn read_token(
             let literal = String::from_iter(&chars[..end]).parse();
             let literal = match literal {
                 Ok(n) => n,
-                Err(_) => return Err(ErrorType::MalformedNumber),
+                Err(_) => return Err(LexerErrorKind::MalformedNumber),
             };
             Ok((end, Some(TokenType::Num(literal))))
         },
@@ -145,7 +145,7 @@ fn read_token(
     }
 }
 
-fn lex_op(chars: &[char]) -> Result<(usize, Option<TokenType>), ErrorType> {
+fn lex_op(chars: &[char]) -> Result<(usize, Option<TokenType>), LexerErrorKind> {
     let consumed = chars.iter()
         .position(|&c| !c.is_ascii_punctuation() || c == '_' || c == '(' || c == ')')
         .unwrap_or(chars.len());

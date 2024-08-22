@@ -1,6 +1,6 @@
 use clap::Parser;
 use flox_core::{
-    error::LoxError,
+    error::FloxError,
     lex,
     parse::parser::{self, Context},
     rt::{self, env::Env, native::populate, types::LoxType},
@@ -44,7 +44,7 @@ fn run_file(path: &str) {
     }
 }
 
-fn run(source: &str) -> Result<LoxType, ()> {
+fn run(source: &str) -> Result<LoxType, String> {
     let tokens = match lex::tokenize(source) {
         Ok(tokens) => tokens,
         Err(error) => return Err(error.report_rich(source)),

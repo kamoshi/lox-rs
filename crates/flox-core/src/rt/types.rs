@@ -4,7 +4,7 @@ use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use super::{
     env::{Env, EnvRef},
-    error::ErrorType,
+    error::RuntimeErrorKind,
     eval_expr,
 };
 
@@ -33,7 +33,7 @@ impl Callable {
     }
 
     #[inline(always)]
-    pub(crate) fn call(&self, arg: &LoxType) -> Result<LoxType, ErrorType> {
+    pub(crate) fn call(&self, arg: &LoxType) -> Result<LoxType, RuntimeErrorKind> {
         let res = match self {
             Callable::Function(func) => func.call(arg),
             Callable::Constructor(_, _, f) => match f {
@@ -42,7 +42,7 @@ impl Callable {
             },
         };
         match res {
-            Err(ErrorType::Return(res)) => Ok(res),
+            Err(RuntimeErrorKind::Return(res)) => Ok(res),
             other => other,
         }
     }
@@ -140,7 +140,7 @@ impl LoxType {
 }
 
 pub trait LoxCallable {
-    fn call(&self, args: &LoxType) -> Result<LoxType, ErrorType>;
+    fn call(&self, args: &LoxType) -> Result<LoxType, RuntimeErrorKind>;
 }
 
 pub struct LoxFn {
@@ -160,7 +160,7 @@ impl LoxFn {
 }
 
 impl LoxCallable for LoxFn {
-    fn call(&self, arg: &LoxType) -> Result<LoxType, ErrorType> {
+    fn call(&self, arg: &LoxType) -> Result<LoxType, RuntimeErrorKind> {
         let env = Env::wrap(self.closure.clone());
         env.borrow_mut().define(&self.param, arg);
         eval_expr(env, &self.body)
